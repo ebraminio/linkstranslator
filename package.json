@@ -1,0 +1,9 @@
+{
+  "name": "linkstranslator",
+  "version": "0.0.0",
+  "license": "BSD",
+  "dependencies": {
+    "q-io": "~1.11.5",
+    "node-fastcgi": "~0.1.8"
+  }
+}

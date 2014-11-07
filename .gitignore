@@ -1,0 +1,6 @@
+*.log
+node_modules
+.viminfo
+.nvm
+.npm
+replica.my.cnf
