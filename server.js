@@ -5,6 +5,7 @@ var Q = require('q');
 
 var NodeCache = require("node-cache");
 var caches = {};
+var enableCache = true;
 
 function server(req, res) {
   if (req.method === 'GET') {
@@ -13,27 +14,39 @@ function server(req, res) {
       'Access-Control-Allow-Origin': '*'
     });
     var query = querystring.parse(url.parse(req.url).query);
-    try {
-      var from = (query.from || 'enwiki').match(/[\w_]{1,20}/)[0];
-      var to = (query.to || 'fawiki').match(/[\w_]{1,20}/)[0];
+
+    var from = (query.from || 'enwiki').match(/[\w_]{1,20}/)[0];
+    if (from.indexOf("wiki") === -1) { from = from + 'wiki'; }
+    var to = (query.to || 'fawiki').match(/[\w_]{1,20}/)[0];
+    if (to.indexOf("wiki") === -1) { to = to + 'wiki'; }
+
+    var pages = [].concat(query.p || query['p[]'] || []).splice(0, 25);
+
+    var cached = {};
+    if (enableCache) {
       var cache = caches[from + '@' + to];
       if (!cache) {
         cache = new NodeCache({ stdTTL: 600, checkperiod: 320 });
         caches[from + '@' + to] = cache;
       }
-      var pages = [].concat(query.p || query['p[]'] || []).splice(0, 25);
 
-      var cached = cache.get(pages);
-      var notCached = pages.filter(function (page) { return !cached[page]; });
+      cached = cache.get(pages);
+      pages = pages.filter(function (page) { return !cached[page]; });
+    }
 
-      (notCached.length ? resolve(notCached, from, to) : Q({})).then(function (result) {
-        Object.keys(result).map(function (key) { cache.set(key, result[key]); });
-        Object.keys(cached).map(function (key) { result[key] = cached[key]; });
-        res.end(JSON.stringify(result));
-      }, function (e) {
-        res.end(JSON.stringify({ error: e.toString() }));
-      });
-    } catch (e) { res.end(JSON.stringify({ error: e.toString() })); };
+    resolve(pages, from, to).then(function (result) {
+      if (enableCache) {
+        for (var key in result) {
+          cache.set(key, result[key]);
+        }
+        for (var key in cached) {
+          result[key] = cached[key];
+        }
+      }
+      res.end(JSON.stringify(result));
+    }, function (e) {
+      res.end(JSON.stringify({ error: e.toString() }));
+    });
   } else {
     res.writeHead(501);
     res.end();
