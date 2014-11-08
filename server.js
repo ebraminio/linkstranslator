@@ -1,7 +1,6 @@
 var url = require('url');
 var querystring = require('querystring');
 var resolve = require('./resolve.js');
-var Q = require('q');
 
 var NodeCache = require("node-cache");
 var caches = {};
@@ -15,9 +14,9 @@ function server(req, res) {
     });
     var query = querystring.parse(url.parse(req.url).query);
 
-    var from = (query.from || 'enwiki').match(/[\w_]{1,20}/)[0];
+    var from = (query.from || 'enwiki').toLowerCase().match(/[a-z_]{1,20}/)[0];
     if (from.indexOf("wiki") === -1) { from = from + 'wiki'; }
-    var to = (query.to || 'fawiki').match(/[\w_]{1,20}/)[0];
+    var to = (query.to || 'fawiki').toLowerCase().match(/[a-z_]{1,20}/)[0];
     if (to.indexOf("wiki") === -1) { to = to + 'wiki'; }
 
     var pages = [].concat(query.p || query['p[]'] || []).splice(0, 25);
