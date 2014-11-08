@@ -2,8 +2,15 @@ var http = require('q-io/http');
 var querystring = require('querystring');
 var Q = require('q');
 
-function getResolvedRedirectPages(pages, fromLang, redirects) {
-  return http.request('http://' + fromLang + '.wikipedia.org/w/api.php?' + querystring.stringify({
+function dbNameToOrigin(dbName) {
+  if (dbName === 'wikidatawiki') { return 'www.wikidata.org'; }
+  if (dbName === 'commonswiki') { return 'commons.wikimedia.org'; }
+  var p = dbName.split('wiki');
+  return p[0].replace(/_/g, '-') + '.wiki' + (p[1] || 'pedia') + '.org';
+}
+
+function getResolvedRedirectPages(pages, fromWiki, redirects) {
+  return http.request('http://' + dbNameToOrigin(fromWiki) + '/w/api.php?' + querystring.stringify({
     action: 'query',
     format: 'json',
     redirects: '',
@@ -17,11 +24,11 @@ function getResolvedRedirectPages(pages, fromLang, redirects) {
   });
 }
 
-function getWikidataEntities(pages, fromLang) {
+function getWikidataEntities(pages, fromWiki) {
   return http.request('http://www.wikidata.org/w/api.php?' + querystring.stringify({
     action: 'wbgetentities',
     format: 'json',
-    sites: fromLang + 'wiki',
+    sites: fromWiki,
     titles: pages.join('|')
   })).then(function (result) { return result.body.read(); }).then(function (result) {
     var entities = JSON.parse(result).entities || {};
@@ -29,17 +36,17 @@ function getWikidataEntities(pages, fromLang) {
   });
 }
 
-function getLocalLink(titles, fromLang, toLang) {
+function getLocalLink(titles, fromWiki, toWiki) {
   if ((titles || []).length === 0) { return Q({}); }
   var pages = titles.map(function (x) { return x.replace(/_/g, ' '); });
   var redirects = {};
-  return getResolvedRedirectPages(pages, fromLang, redirects).then(function (x) {
-    return getWikidataEntities(x, fromLang);
+  return getResolvedRedirectPages(pages, fromWiki, redirects).then(function (x) {
+    return getWikidataEntities(x, fromWiki);
   }).then(function (entities) {
     var equs = {};
     entities.forEach(function (x) {
-      if (!x.sitelinks || !x.sitelinks[toLang + 'wiki']) { return; }
-      equs[x.sitelinks[fromLang + 'wiki'].title] = x.sitelinks[toLang + 'wiki'].title;
+      if (!x.sitelinks || !x.sitelinks[toWiki]) { return; }
+      equs[x.sitelinks[fromWiki].title] = x.sitelinks[toWiki].title;
     });
 
     var result = {};
@@ -59,7 +66,7 @@ module.exports = getLocalLink;
 
 if (require.main === module) { // test and development
   var argv = require('minimist')(process.argv.slice(2));
-  getLocalLink(argv._, argv.from || 'en', argv.to || 'fa').then(function (x) {
+  getLocalLink(argv._, argv.from || 'enwiki', argv.to || 'fawiki').then(function (x) {
     console.log(x);
   }, function (e) {
     console.log(e.stack);

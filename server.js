@@ -14,8 +14,8 @@ function server(req, res) {
     });
     var query = querystring.parse(url.parse(req.url).query);
     try {
-      var from = (query.from || 'en').match(/\w{1,6}/)[0];
-      var to = (query.to || 'fa').match(/\w{1,6}/)[0];
+      var from = (query.from || 'enwiki').match(/[\w_]{1,20}/)[0];
+      var to = (query.to || 'fawiki').match(/[\w_]{1,20}/)[0];
       var cache = caches[from + '@' + to];
       if (!cache) {
         cache = new NodeCache({ stdTTL: 600, checkperiod: 320 });
