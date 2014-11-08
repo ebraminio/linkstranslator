@@ -1,5 +1,6 @@
 var http = require('q-io/http');
 var querystring = require('querystring');
+var Q = require('q');
 
 function getResolvedRedirectPages(pages, fromLang, redirects) {
   return http.request('http://' + fromLang + '.wikipedia.org/w/api.php?' + querystring.stringify({
@@ -29,6 +30,7 @@ function getWikidataEntities(pages, fromLang) {
 }
 
 function getLocalLink(titles, fromLang, toLang) {
+  if ((titles || []).length === 0) { return Q({}); }
   var pages = titles.map(function (x) { return x.replace(/_/g, ' '); });
   var redirects = {};
   return getResolvedRedirectPages(pages, fromLang, redirects).then(function (x) {
@@ -55,8 +57,9 @@ function getLocalLink(titles, fromLang, toLang) {
 
 module.exports = getLocalLink;
 
-if (require.main === module) { // development
-  getLocalLink(process.argv.slice(2), 'en', 'fa').then(function (x) {
+if (require.main === module) { // test and development
+  var argv = require('minimist')(process.argv.slice(2));
+  getLocalLink(argv._, argv.from || 'en', argv.to || 'fa').then(function (x) {
     console.log(x);
   }, function (e) {
     console.log(e.stack);
