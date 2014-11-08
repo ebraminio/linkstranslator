@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "license": "BSD",
   "dependencies": {
-    "q-io": "~1.11.5",
-    "node-fastcgi": "~0.1.8"
+    "node-cache": "~1.0.3",
+    "node-fastcgi": "~0.1.8",
+    "q": "~1.0.1",
+    "q-io": "~1.11.5"
   }
 }

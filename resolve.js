@@ -9,6 +9,7 @@ function getResolvedRedirectPages(pages, fromLang, redirects) {
     titles: pages.join('|')
   })).then(function (result) { return result.body.read(); }).then(function (result) {
     var result = JSON.parse(result);
+    if (!result.query) { return []; }
     var pages = result.query.pages;
     (result.query.redirects || []).forEach(function (x) { redirects[x.from] = x.to; });
     return Object.keys(pages).map(function (x) { return pages[x].title; });
@@ -22,12 +23,13 @@ function getWikidataEntities(pages, fromLang) {
     sites: fromLang + 'wiki',
     titles: pages.join('|')
   })).then(function (result) { return result.body.read(); }).then(function (result) {
-    var entities = JSON.parse(result).entities;
+    var entities = JSON.parse(result).entities || {};
     return Object.keys(entities).map(function (x) { return entities[x]; });
   });
 }
 
-function getLocalLink(pages, fromLang, toLang) {
+function getLocalLink(titles, fromLang, toLang) {
+  var pages = titles.map(function (x) { return x.replace(/_/g, ' '); });
   var redirects = {};
   return getResolvedRedirectPages(pages, fromLang, redirects).then(function (x) {
     return getWikidataEntities(x, fromLang);
@@ -39,15 +41,24 @@ function getLocalLink(pages, fromLang, toLang) {
     });
 
     var result = {};
-    pages.forEach(function (title) {
+    titles.forEach(function (title) {
       var page = redirects[title] || title;
+      if (equs[page]) { result[title] = equs[page]; }
+
+      var normalized = title.replace(/_/g, ' ');
+      page = redirects[normalized] || normalized;
       if (equs[page]) { result[title] = equs[page]; }
     });
     return result;
   });
 }
 
-//getLocalLink(require('querystring').parse('p=I.R.Iran&p=Iran').p, 'en', 'fa')
-//getLocalLink(['IR', 'Iran'], 'en', 'fa')
-//  .then(function (x) { return console.log(x); }, function (x) { return console.log(x.stack); });
 module.exports = getLocalLink;
+
+if (require.main === module) { // development
+  getLocalLink(process.argv.slice(2), 'en', 'fa').then(function (x) {
+    console.log(x);
+  }, function (e) {
+    console.log(e.stack);
+  });
+}
