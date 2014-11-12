@@ -8,5 +8,9 @@
     "node-fastcgi": "~0.1.8",
     "q": "~1.0.1",
     "q-io": "~1.11.5"
+  },
+  "engines": { "node": ">=0.10.3 <0.12" },
+  "scripts": {
+    "test": "node test.js"
   }
 }
