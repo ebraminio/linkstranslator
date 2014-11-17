@@ -32,7 +32,7 @@ function server(req, res) {
     var to = (query.to || 'fawiki').toLowerCase().match(/[a-z_]{1,20}/)[0];
     if (to.indexOf("wiki") === -1) { to = to + 'wiki'; }
 
-    var pages = [].concat(query.p || query['p[]'] || []).splice(0, 25);
+    var pages = [].concat(query.p || query['p[]'] || []);
 
     var cached = {};
     if (enableCache) {
