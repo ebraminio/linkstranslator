@@ -7,6 +7,11 @@ resolve(['سیب'], 'fawiki', 'enwiki').then(function (result) {
   passed++;
 });
 
+resolve(['apple'], 'enwiki', 'fawiki').then(function (result) {
+  assert.equal(result['apple'], 'سیب');
+  passed++;
+});
+
 process.on('exit', function () {
   console.log('Assetions passed: ', passed);
 });

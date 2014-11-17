@@ -25,7 +25,6 @@ function server(req, res) {
 
   prepareRequest.then(function (request) {
     var query = querystring.parse(request);
-    console.log(query);
 
     var from = (query.from || 'enwiki').toLowerCase().match(/[a-z_]{1,20}/)[0];
     if (from.indexOf("wiki") === -1) { from = from + 'wiki'; }

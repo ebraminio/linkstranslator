@@ -39,6 +39,7 @@ function getResolvedRedirectPages(pages, fromWiki, redirects) {
     if (!result.query) { return []; }
     var pages = result.query.pages;
     (result.query.redirects || []).forEach(function (x) { redirects[x.from] = x.to; });
+    (result.query.normalized || []).forEach(function (x) { redirects[x.from] = x.to; });
     return Object.keys(pages).map(function (x) { return pages[x].title; });
   });
 }
