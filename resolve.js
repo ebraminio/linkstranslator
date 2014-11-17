@@ -1,4 +1,4 @@
-var http = require('q-io/http');
+var http = require('http');
 var querystring = require('querystring');
 var Q = require('q');
 
@@ -9,14 +9,33 @@ function dbNameToOrigin(dbName) {
   return p[0].replace(/_/g, '-') + '.wiki' + (p[1] || 'pedia') + '.org';
 }
 
+function api(host, data) {
+  var defer = Q.defer();
+  var req = http.request({
+    host: host,
+    path: '/w/api.php?' + querystring.stringify(data),
+    method: 'GET',
+    headers: {
+      'User-Agent': 'linkstranslator (github.com/ebraminio/linkstranslator)'
+    }
+  }, function (response) {
+    var result = [];
+    response.on('data', function (chunk) { result.push(chunk); });
+    response.on('end', function () { defer.resolve(result.join('')); });
+  });
+  // req.write(querystring.stringify(data));
+  req.end();
+  return defer.promise;
+}
+
 function getResolvedRedirectPages(pages, fromWiki, redirects) {
-  return http.request('http://' + dbNameToOrigin(fromWiki) + '/w/api.php?' + querystring.stringify({
+  return api(dbNameToOrigin(fromWiki), {
     action: 'query',
     format: 'json',
     redirects: '',
     titles: pages.join('|')
-  })).then(function (result) { return result.body.read(); }).then(function (result) {
-    var result = JSON.parse(result);
+  }).then(function (result) {
+    result = JSON.parse(result);
     if (!result.query) { return []; }
     var pages = result.query.pages;
     (result.query.redirects || []).forEach(function (x) { redirects[x.from] = x.to; });
@@ -25,13 +44,14 @@ function getResolvedRedirectPages(pages, fromWiki, redirects) {
 }
 
 function getWikidataEntities(pages, fromWiki) {
-  return http.request('http://www.wikidata.org/w/api.php?' + querystring.stringify({
+  return api('www.wikidata.org', {
     action: 'wbgetentities',
     format: 'json',
     sites: fromWiki,
     titles: pages.join('|')
-  })).then(function (result) { return result.body.read(); }).then(function (result) {
-    var entities = JSON.parse(result).entities || {};
+  }).then(function (result) {
+    result = JSON.parse(result);
+    var entities = result.entities || {};
     return Object.keys(entities).map(function (x) { return entities[x]; });
   });
 }
