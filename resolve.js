@@ -40,14 +40,33 @@ function getLocalLink(titles, fromWiki, toWiki) {
   if ((titles || []).length === 0) { return Q({}); }
   var pages = titles.map(function (x) { return x.replace(/_/g, ' '); });
   var redirects = {};
-  return getResolvedRedirectPages(pages, fromWiki, redirects).then(function (x) {
-    return getWikidataEntities(x, fromWiki);
-  }).then(function (entities) {
-    var equs = {};
-    entities.forEach(function (x) {
-      if (!x.sitelinks || !x.sitelinks[toWiki]) { return; }
-      equs[x.sitelinks[fromWiki].title] = x.sitelinks[toWiki].title;
+
+  // getResolvedRedirectPages and getWikidataEntities have 50 page limitation so
+  var batches = [];
+  for (var i = 0; i < titles.length; i += 50) {
+    batches.push(titles.slice(i, i + 50));
+  }
+
+  return Q.all(batches.map(function () {
+    return getResolvedRedirectPages(pages, fromWiki, redirects).then(function (x) {
+      return getWikidataEntities(x, fromWiki);
     });
+  })).then(function (entitiesArray) {
+    var equs = {};
+
+    // flat entitiesArray
+    var entities = entitiesArray.reduce(function(a, b) { return a.concat(b); });
+
+    for (var i in entities) {
+      var entity = entities[i];
+      if (!entity.sitelinks || !entity.sitelinks[toWiki]) { return; }
+
+      // not updated Wikidata items may don't have title on their sitelinks
+      var from = entity.sitelinks[fromWiki].title || entity.sitelinks[fromWiki];
+      var to = entity.sitelinks[toWiki].title || entity.sitelinks[toWiki];
+
+      equs[from] = to;
+    }
 
     var result = {};
     titles.forEach(function (title) {
