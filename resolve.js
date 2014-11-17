@@ -54,29 +54,30 @@ function getLocalLink(titles, fromWiki, toWiki) {
   })).then(function (entitiesArray) {
     var equs = {};
 
-    // flat entitiesArray
-    var entities = entitiesArray.reduce(function(a, b) { return a.concat(b); });
+    for (var i in entitiesArray) {
+      var entities = entitiesArray[i];
+      for (var j in entities) {
+        var entity = entities[j];
+        if (!entity.sitelinks || !entity.sitelinks[toWiki]) { continue; }
 
-    for (var i in entities) {
-      var entity = entities[i];
-      if (!entity.sitelinks || !entity.sitelinks[toWiki]) { return; }
+        // not updated Wikidata items may don't have title on their sitelinks
+        var from = entity.sitelinks[fromWiki].title || entity.sitelinks[fromWiki];
+        var to = entity.sitelinks[toWiki].title || entity.sitelinks[toWiki];
 
-      // not updated Wikidata items may don't have title on their sitelinks
-      var from = entity.sitelinks[fromWiki].title || entity.sitelinks[fromWiki];
-      var to = entity.sitelinks[toWiki].title || entity.sitelinks[toWiki];
-
-      equs[from] = to;
+        equs[from] = to;
+      }
     }
 
     var result = {};
-    titles.forEach(function (title) {
+    for (var i in titles) {
+      var title = titles[i];
       var page = redirects[title] || title;
       if (equs[page]) { result[title] = equs[page]; }
 
       var normalized = title.replace(/_/g, ' ');
       page = redirects[normalized] || normalized;
       if (equs[page]) { result[title] = equs[page]; }
-    });
+    }
     return result;
   });
 }
