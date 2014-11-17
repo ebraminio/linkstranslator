@@ -1,18 +1,31 @@
 var url = require('url');
 var querystring = require('querystring');
 var resolve = require('./resolve.js');
+var Q = require('q');
 
 var NodeCache = require("node-cache");
 var caches = {};
 var enableCache = true;
 
 function server(req, res) {
+  var prepareRequest;
   if (req.method === 'GET') {
-    res.writeHead(200, {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
-    });
-    var query = querystring.parse(url.parse(req.url).query);
+    prepareRequest = Q(url.parse(req.url).query);
+  } else if (req.method === 'POST') {
+    var defer = Q.defer();
+    var body = [];
+    req.on('data', function (data) { body.push(data); });
+    req.on('end', function () { defer.resolve(body.join('')); });
+    prepareRequest = defer.promise;
+  } else {
+    res.writeHead(501);
+    res.end();
+    return;
+  }
+
+  prepareRequest.then(function (request) {
+    var query = querystring.parse(request);
+    console.log(query);
 
     var from = (query.from || 'enwiki').toLowerCase().match(/[a-z_]{1,20}/)[0];
     if (from.indexOf("wiki") === -1) { from = from + 'wiki'; }
@@ -33,7 +46,7 @@ function server(req, res) {
       pages = pages.filter(function (page) { return !cached[page]; });
     }
 
-    resolve(pages, from, to).then(function (result) {
+    return resolve(pages, from, to).then(function (result) {
       if (enableCache) {
         for (var key in result) {
           cache.set(key, result[key]);
@@ -42,14 +55,18 @@ function server(req, res) {
           result[key] = cached[key];
         }
       }
-      res.end(JSON.stringify(result));
-    }, function (e) {
-      res.end(JSON.stringify({ error: e.toString() }));
+      return JSON.stringify(result);
     });
-  } else {
-    res.writeHead(501);
-    res.end();
-  }
+  }).then(function (result) {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(result);
+  }, function (error) {
+    res.writeHead(500);
+    res.end(JSON.stringify({ error: error.toString() }));
+  });
 }
 
 if (process.env.FCGI_MODE) { // called through fcgi
