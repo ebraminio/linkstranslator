@@ -23,7 +23,7 @@ function api(host, data) {
     response.on('data', function (chunk) { result.push(chunk); });
     response.on('end', function () { defer.resolve(result.join('')); });
   });
-  // req.write(querystring.stringify(data));
+  // req.write(querystring.stringify(data)); for POST
   req.end();
   return defer.promise;
 }
@@ -63,8 +63,8 @@ function getLocalLink(titles, fromWiki, toWiki) {
 
   // getResolvedRedirectPages and getWikidataEntities have 50 page limitation so
   var batches = [];
-  for (var i = 0; i < titles.length; i += 50) {
-    batches.push(titles.slice(i, i + 50));
+  for (var i = 0; i < titles.length; i += 20) {
+    batches.push(titles.slice(i, i + 20));
   }
 
   return Q.all(batches.map(function () {
