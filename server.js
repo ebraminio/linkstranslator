@@ -1,7 +1,6 @@
 var url = require('url');
 var querystring = require('querystring');
 var resolve = require('./resolve.js');
-var Q = require('q');
 
 var NodeCache = require("node-cache");
 var caches = {};
@@ -10,13 +9,13 @@ var enableCache = true;
 function server(req, res) {
   var prepareRequest;
   if (req.method === 'GET') {
-    prepareRequest = Q(url.parse(req.url).query);
+    prepareRequest = Promise.resolve(url.parse(req.url).query);
   } else if (req.method === 'POST') {
-    var defer = Q.defer();
-    var body = [];
-    req.on('data', function (data) { body.push(data); });
-    req.on('end', function () { defer.resolve(body.join('')); });
-    prepareRequest = defer.promise;
+    prepareRequest = new Promise(function (resolve) {
+      var body = [];
+      req.on('data', function (data) { body.push(data); });
+      req.on('end', function () { resolve(body.join('')); });
+    });
   } else {
     res.writeHead(501);
     res.end();

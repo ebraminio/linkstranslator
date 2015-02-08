@@ -1,3 +1,3 @@
-#!/data/project/linkstranslator/.nvm/v0.10.33/bin/node
+#!/data/project/linkstranslator/iojs/bin
 
 require('./server.js');

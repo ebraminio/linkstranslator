@@ -1,6 +1,5 @@
 var http = require('http');
 var querystring = require('querystring');
-var Q = require('q');
 
 function dbNameToOrigin(dbName) {
   if (dbName === 'wikidatawiki') { return 'www.wikidata.org'; }
@@ -10,22 +9,22 @@ function dbNameToOrigin(dbName) {
 }
 
 function api(host, data) {
-  var defer = Q.defer();
-  var req = http.request({
-    host: host,
-    path: '/w/api.php?' + querystring.stringify(data),
-    method: 'GET',
-    headers: {
-      'User-Agent': 'linkstranslator (github.com/ebraminio/linkstranslator)'
-    }
-  }, function (response) {
-    var result = [];
-    response.on('data', function (chunk) { result.push(chunk); });
-    response.on('end', function () { defer.resolve(result.join('')); });
+  return new Promise(function (resolve) {
+    var req = http.request({
+      host: host,
+      path: '/w/api.php?' + querystring.stringify(data),
+      method: 'GET',
+      headers: {
+        'User-Agent': 'linkstranslator (github.com/ebraminio/linkstranslator)'
+      }
+    }, function (response) {
+      var result = [];
+      response.on('data', function (chunk) { result.push(chunk); });
+      response.on('end', function () { resolve(result.join('')); });
+    });
+    // req.write(querystring.stringify(data)); for POST
+    req.end();
   });
-  // req.write(querystring.stringify(data)); for POST
-  req.end();
-  return defer.promise;
 }
 
 function getResolvedRedirectPages(pages, fromWiki, redirects) {
@@ -58,7 +57,7 @@ function getWikidataEntities(pages, fromWiki) {
 }
 
 function getLocalLink(titles, fromWiki, toWiki) {
-  if ((titles || []).length === 0) { return Q({}); }
+  if ((titles || []).length === 0) { return Promise.resolve({}); }
   var pages = titles.map(function (x) { return x.replace(/_/g, ' '); });
   var redirects = {};
 
@@ -68,7 +67,7 @@ function getLocalLink(titles, fromWiki, toWiki) {
     batches.push(titles.slice(i, i + 20));
   }
 
-  return Q.all(batches.map(function () {
+  return Promise.all(batches.map(function () {
     return getResolvedRedirectPages(pages, fromWiki, redirects).then(function (x) {
       return getWikidataEntities(x, fromWiki);
     });

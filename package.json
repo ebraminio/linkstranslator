@@ -3,12 +3,11 @@
   "version": "0.0.0",
   "license": "BSD",
   "dependencies": {
-    "minimist": "~1.1.0",
-    "node-cache": "~1.0.3",
-    "node-fastcgi": "~0.1.8",
-    "q": "~1.0.1"
+    "minimist": "^1.1.0",
+    "node-cache": "^1.0.3",
+    "node-fastcgi": "^0.1.9"
   },
-  "engines": { "node": ">=0.10.3 <0.12" },
+  "engines": { "io.js": ">=1.0.4" },
   "scripts": {
     "test": "node test.js"
   }
