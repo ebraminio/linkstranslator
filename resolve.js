@@ -67,8 +67,8 @@ function getLocalLink(titles, fromWiki, toWiki) {
     batches.push(titles.slice(i, i + 20));
   }
 
-  return Promise.all(batches.map(function () {
-    return getResolvedRedirectPages(pages, fromWiki, redirects).then(function (x) {
+  return Promise.all(batches.map(function (b) {
+    return getResolvedRedirectPages(b, fromWiki, redirects).then(function (x) {
       return getWikidataEntities(x, fromWiki);
     });
   })).then(function (entitiesArray) {
