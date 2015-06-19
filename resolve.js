@@ -1,4 +1,4 @@
-var http = require('http');
+var http = require('https');
 var querystring = require('querystring');
 
 function dbNameToOrigin(dbName) {
