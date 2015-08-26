@@ -1,5 +1,4 @@
 <?php
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 $json = json_encode(translateLinks(
@@ -10,6 +9,8 @@ $json = json_encode(translateLinks(
 echo $json !== '[]' ? $json : '{}';
 
 function translateLinks($pages, $fromWiki, $toWiki) {
+	$pages = array_unique($pages);
+	
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return []; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
@@ -19,22 +20,7 @@ function translateLinks($pages, $fromWiki, $toWiki) {
 	
 	$redirects = [];
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
-	$entities = getWikidataEntities($resolvedPages, $fromWiki);
-	$equs = [];
-
-	foreach ($entities as $entity) {
-		if (!isset($entity['sitelinks']) || !isset($entity['sitelinks'][$toWiki])) { continue; }
-
-		// not updated Wikidata items may don't have title on their sitelinks
-		$from = isset($entity['sitelinks'][$fromWiki]['title'])
-			? $entity['sitelinks'][$fromWiki]['title']
-			: $entity['sitelinks'][$fromWiki];
-		$to = isset($entity['sitelinks'][$toWiki]['title'])
-			? $entity['sitelinks'][$toWiki]['title']
-			: $entity['sitelinks'][$toWiki];
-
-		$equs[$from] = $to;
-	}
+	$equs = getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki);
 	
 	$result = [];
 	foreach ($pages as $i) {
@@ -48,7 +34,31 @@ function translateLinks($pages, $fromWiki, $toWiki) {
 	return $result;
 }
 
-function getWikidataEntities($pages, $fromWiki) {
+function getLocalNamesFromWikidataSQL($pages, $fromWiki, $toWiki) {
+	$ini = parse_ini_file('../replica.my.cnf');
+	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	$fromWiki = mysqli_real_escape_string($db, $fromWiki);
+	$toWiki = mysqli_real_escape_string($db, $toWiki);
+	foreach ($pages as &$p) {
+		$p = mysqli_real_escape_string($db, $p);
+	}
+	$query = "
+SELECT T2.ips_site_page, T1.ips_site_page
+FROM wb_items_per_site T1 INNER JOIN wb_items_per_site T2 ON T1.ips_item_id = T2.ips_item_id AND T2.ips_site_id = '$toWiki'
+WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '", $pages) . "')
+";
+	$dbResult = mysqli_query($db, $query);
+	if (!$dbResult) { return []; }
+	$equs = [];
+	while ($match = $dbResult->fetch_row()) {
+		$equs[$match[1]] = $match[0];
+	}
+	mysqli_free_result($dbResult);
+	mysqli_close($db);
+	return $equs;
+}
+
+function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
 		return [
 			'action' => 'wbgetentities',
@@ -67,7 +77,22 @@ function getWikidataEntities($pages, $fromWiki) {
 			}
 		}
 	}
-	return $entities;
+
+	$equs = [];
+	foreach ($entities as $entity) {
+		if (!isset($entity['sitelinks']) || !isset($entity['sitelinks'][$toWiki])) { continue; }
+
+		// not updated Wikidata items may don't have title on their sitelinks
+		$from = isset($entity['sitelinks'][$fromWiki]['title'])
+			? $entity['sitelinks'][$fromWiki]['title']
+			: $entity['sitelinks'][$fromWiki];
+		$to = isset($entity['sitelinks'][$toWiki]['title'])
+			? $entity['sitelinks'][$toWiki]['title']
+			: $entity['sitelinks'][$toWiki];
+
+		$equs[$from] = $to;
+	}
+	return $equs;
 }
 
 function getResolvedRedirectPages($pages, $fromWiki, &$redirects) {
