@@ -20,7 +20,13 @@ function translateLinks($pages, $fromWiki, $toWiki) {
 	
 	$redirects = [];
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
-	$equs = getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki);
+	if ($toWiki === "wikidatawiki") {
+		$equs = getWikidataIdSQL($resolvedPages);
+	} elseif ($toWiki === "imdbwiki") {
+		$equs = getImdbIdWikidata($pages, $fromWiki);
+	} else {
+		$equs = getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki);
+	}
 	
 	$result = [];
 	foreach ($pages as $i) {
@@ -32,6 +38,67 @@ function translateLinks($pages, $fromWiki, $toWiki) {
 		if (isset($equs[$page])) { $result[$i] = $equs[$page]; }
 	}
 	return $result;
+}
+
+function getImdbIdWikidata($pages, $fromWiki) {
+	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
+		return [
+			'action' => 'wbgetentities',
+			'format' => 'json',
+			'sites' => $fromWiki,
+			'titles' => implode('|', $batch),
+			'props' => 'sitelinks|claims'
+		];
+	});
+	$entities = [];
+	foreach ($apiResultArray as $i) {
+		$json = json_decode($i, true);
+		if (is_array($json) && isset($json['entities'])) {
+			foreach ($json['entities'] as $entity) {
+				$entities[] = $entity;
+			}
+		}
+	}
+
+	$equs = [];
+	foreach ($entities as $entity) {
+		if (!isset($entity['sitelinks'])) { continue; }
+
+		// not updated Wikidata items may don't have title on their sitelinks
+		$from = isset($entity['sitelinks'][$fromWiki]['title'])
+			? $entity['sitelinks'][$fromWiki]['title']
+			: $entity['sitelinks'][$fromWiki];
+
+		if (!isset($entity['claims']['P345'][0]['mainsnak']['datavalue']['value']))
+			continue;
+
+		$to = $entity['claims']['P345'][0]['mainsnak']['datavalue']['value'];
+
+		$equs[$from] = $to;
+	}
+	return $equs;
+}
+
+function getWikidataIdSQL($pages) {
+	$ini = parse_ini_file('../replica.my.cnf');
+	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	foreach ($pages as &$p) {
+		$p = mysqli_real_escape_string($db, $p);
+	}
+	$query = "
+SELECT CONCAT('Q', ips_item_id), ips_site_page
+FROM wb_items_per_site
+WHERE ips_site_page IN ('" . implode("', '", $pages) . "')
+";
+	$dbResult = mysqli_query($db, $query);
+	if (!$dbResult) { return []; }
+	$equs = [];
+	while ($match = $dbResult->fetch_row()) {
+		$equs[$match[1]] = $match[0];
+	}
+	mysqli_free_result($dbResult);
+	mysqli_close($db);
+	return $equs;
 }
 
 function getLocalNamesFromWikidataSQL($pages, $fromWiki, $toWiki) {
