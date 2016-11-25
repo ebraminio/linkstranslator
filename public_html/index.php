@@ -1,14 +1,18 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
+
+$USE_SQL = false;
+
 $json = json_encode(translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : [$_REQUEST['p']]) : [],
 	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
-	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki'
+	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
+	isset($_REQUEST['missings'])
 ));
 echo $json !== '[]' ? $json : '{}';
 
-function translateLinks($pages, $fromWiki, $toWiki) {
+function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$pages = array_unique($pages);
 	
 	$fromWiki = strtolower($fromWiki);
@@ -20,12 +24,15 @@ function translateLinks($pages, $fromWiki, $toWiki) {
 	
 	$redirects = [];
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
+
 	if ($toWiki === "wikidatawiki") {
 		$equs = getWikidataIdSQL($resolvedPages);
 	} elseif ($toWiki === "imdbwiki") {
 		$equs = getImdbIdWikidata($pages, $fromWiki);
 	} else {
-		$equs = getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki);
+		$equs = $USE_SQL
+			? getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki)
+			: getLocalNamesFromWikidata($resolvedPages, $fromWiki, $toWiki);
 	}
 	
 	$result = [];
@@ -37,6 +44,38 @@ function translateLinks($pages, $fromWiki, $toWiki) {
 		$page = isset($redirects[$i]) ? $redirects[$i] : $i;
 		if (isset($equs[$page])) { $result[$i] = $equs[$page]; }
 	}
+
+	if ($missings) {
+		$host = dbNameToOrigin($fromWiki);
+		$apiResult = multiRequest(array_map(function ($page) use ($host) {
+			$form = [
+				'action' => 'query',
+				'format' => 'json',
+				'prop' => 'langlinks|links',
+				'redirects' => '',
+				'pllimit' => '500',
+				'lllimit' => '500',
+				'titles' => $page
+			];
+			return 'https://' . $host . '/w/api.php?' . http_build_query($form);
+		}, array_diff($pages, array_keys($result))), [CURLOPT_SSL_VERIFYPEER => false]);
+
+		$missings = [];
+		foreach ($apiResult as $a) {
+			$x = json_decode($a, true);
+			if (!isset($x['query']['pages'])) continue;
+			$p = array_values($x['query']['pages'])[0];
+			$e = $p['title'];
+			if (isset($x['query']['redirects'])) $e = $x['query']['redirects'][0]['from'];
+			if (isset($x['query']['normalized'])) $e = $x['query']['normalized'][0]['from'];
+			$missings[$e] = [
+				'langlinks' => count($p['langlinks']),
+				'links' => count($p['links'])
+			];
+		}
+		$result['#missings'] = $missings;
+	}
+
 	return $result;
 }
 
