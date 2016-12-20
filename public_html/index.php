@@ -8,7 +8,7 @@ $json = json_encode(translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : [$_REQUEST['p']]) : [],
 	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
 	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
-	isset($_REQUEST['missings'])
+	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false
 ));
 echo $json !== '[]' ? $json : '{}';
 
