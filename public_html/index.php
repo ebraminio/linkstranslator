@@ -2,7 +2,12 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
-$USE_SQL = false;
+$USE_SQL = file_exists('../replica.my.cnf');
+
+if ($USE_SQL) {
+        $ini = parse_ini_file('../replica.my.cnf');
+        $db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+}
 
 $json = json_encode(translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : [$_REQUEST['p']]) : [],
@@ -12,7 +17,13 @@ $json = json_encode(translateLinks(
 ));
 echo $json !== '[]' ? $json : '{}';
 
+if ($USE_SQL) {
+	mysqli_close($db);
+}
+
 function translateLinks($pages, $fromWiki, $toWiki, $missings) {
+	global $USE_SQL;
+
 	$pages = array_unique($pages);
 
 	$fromWiki = strtolower($fromWiki);
@@ -119,8 +130,8 @@ function getImdbIdWikidata($pages, $fromWiki) {
 }
 
 function getWikidataIdSQL($pages) {
-	$ini = parse_ini_file('../replica.my.cnf');
-	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	global $db;
+
 	foreach ($pages as &$p) {
 		$p = mysqli_real_escape_string($db, $p);
 	}
@@ -136,13 +147,12 @@ WHERE ips_site_page IN ('" . implode("', '", $pages) . "')
 		$equs[$match[1]] = $match[0];
 	}
 	mysqli_free_result($dbResult);
-	mysqli_close($db);
 	return $equs;
 }
 
 function getLocalNamesFromWikidataSQL($pages, $fromWiki, $toWiki) {
-	$ini = parse_ini_file('../replica.my.cnf');
-	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	global $db;
+
 	$fromWiki = mysqli_real_escape_string($db, $fromWiki);
 	$toWiki = mysqli_real_escape_string($db, $toWiki);
 	foreach ($pages as &$p) {
@@ -160,7 +170,6 @@ WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '",
 		$equs[$match[1]] = $match[0];
 	}
 	mysqli_free_result($dbResult);
-	mysqli_close($db);
 	return $equs;
 }
 
