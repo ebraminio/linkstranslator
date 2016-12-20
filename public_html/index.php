@@ -59,37 +59,40 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	}
 
 	if ($missings) {
-		$host = dbNameToOrigin($fromWiki);
-		$apiResult = multiRequest(array_map(function ($page) use ($host) {
-			$form = [
-				'action' => 'query',
-				'format' => 'json',
-				'prop' => 'langlinks|links',
-				'redirects' => '',
-				'pllimit' => '500',
-				'lllimit' => '500',
-				'titles' => $page
-			];
-			return 'https://' . $host . '/w/api.php?' . http_build_query($form);
-		}, array_diff($pages, array_keys($result))), [CURLOPT_SSL_VERIFYPEER => false]);
-
-		$missings = [];
-		foreach ($apiResult as $a) {
-			$x = json_decode($a, true);
-			if (!isset($x['query']['pages'])) continue;
-			$p = array_values($x['query']['pages'])[0];
-			$e = $p['title'];
-			if (isset($x['query']['redirects'])) $e = $x['query']['redirects'][0]['from'];
-			if (isset($x['query']['normalized'])) $e = $x['query']['normalized'][0]['from'];
-			$missings[$e] = [
-				'langlinks' => isset($p['langlinks']) ? count($p['langlinks']) : 0,
-				'links' => isset($p['links']) ? count($p['links']) : 0
-			];
-		}
-		$result['#missings'] = $missings;
+		$result['#missings'] = getMissingsInfo($fromWiki, array_diff($pages, array_keys($result)));
 	}
 
 	return $result;
+}
+
+function getMissingsInfo($fromWiki, $pages) {
+	$host = dbNameToOrigin($fromWiki);
+	$apiResult = multiRequest(array_map(function ($page) use ($host) {
+		return 'https://' . $host . '/w/api.php?' . http_build_query([
+			'action' => 'query',
+			'format' => 'json',
+			'prop' => 'langlinks|links',
+			'redirects' => '',
+			'pllimit' => '500',
+			'lllimit' => '500',
+			'titles' => $page
+		]);
+	}, $pages), [CURLOPT_SSL_VERIFYPEER => false]);
+
+	$missings = [];
+	foreach ($apiResult as $a) {
+		$x = json_decode($a, true);
+		if (!isset($x['query']['pages'])) continue;
+		$p = array_values($x['query']['pages'])[0];
+		$e = $p['title'];
+		if (isset($x['query']['redirects'])) $e = $x['query']['redirects'][0]['from'];
+		if (isset($x['query']['normalized'])) $e = $x['query']['normalized'][0]['from'];
+		$missings[$e] = [
+			'langlinks' => isset($p['langlinks']) ? count($p['langlinks']) : 0,
+			'links' => isset($p['links']) ? count($p['links']) : 0
+		];
+	}
+	return $missings;
 }
 
 function getImdbIdWikidata($pages, $fromWiki) {
