@@ -5,8 +5,8 @@ header('Access-Control-Allow-Origin: *');
 $USE_SQL = file_exists('../replica.my.cnf');
 
 if ($USE_SQL) {
-        $ini = parse_ini_file('../replica.my.cnf');
-        $db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	$ini = parse_ini_file('../replica.my.cnf');
+	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
 }
 
 $json = json_encode(translateLinks(
@@ -37,7 +37,9 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
 
 	if ($toWiki === "wikidatawiki") {
-		$equs = getWikidataIdSQL($resolvedPages);
+		$equs = $USE_SQL
+			? getWikidataIdSQL($resolvedPages, $fromWiki)
+			: getWikidataId($resolvedPages, $fromWiki);
 	} elseif ($toWiki === "imdbwiki") {
 		$equs = getImdbIdWikidata($pages, $fromWiki);
 	} else {
@@ -129,7 +131,39 @@ function getImdbIdWikidata($pages, $fromWiki) {
 	return $equs;
 }
 
-function getWikidataIdSQL($pages) {
+function getWikidataId($pages, $fromWiki) {
+	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
+		return [
+			'action' => 'wbgetentities',
+			'format' => 'json',
+			'sites' => $fromWiki,
+			'titles' => implode('|', $batch),
+			'props' => 'sitelinks'
+		];
+	});
+	$entities = [];
+	foreach ($apiResultArray as $i) {
+		$json = json_decode($i, true);
+		if (is_array($json) && isset($json['entities'])) {
+			foreach ($json['entities'] as $entity) {
+				$entities[] = $entity;
+			}
+		}
+	}
+
+	$equs = [];
+	foreach ($entities as $entity) {
+		// not updated Wikidata items may don't have title on their sitelinks
+		$from = isset($entity['sitelinks'][$fromWiki]['title'])
+			? $entity['sitelinks'][$fromWiki]['title']
+			: $entity['sitelinks'][$fromWiki];
+
+		$equs[$from] = $entity['id'];
+	}
+	return $equs;
+}
+
+function getWikidataIdSQL($pages, $fromWiki) {
 	global $db;
 
 	foreach ($pages as &$p) {
@@ -138,8 +172,7 @@ function getWikidataIdSQL($pages) {
 	$query = "
 SELECT CONCAT('Q', ips_item_id), ips_site_page
 FROM wb_items_per_site
-WHERE ips_site_page IN ('" . implode("', '", $pages) . "')
-";
+WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$fromWiki'";
 	$dbResult = mysqli_query($db, $query);
 	if (!$dbResult) { return []; }
 	$equs = [];
