@@ -14,14 +14,14 @@ echo $json !== '[]' ? $json : '{}';
 
 function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$pages = array_unique($pages);
-	
+
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return []; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
 	$toWiki = strtolower($toWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return []; };
 	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
-	
+
 	$redirects = [];
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
 
@@ -34,7 +34,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			? getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki)
 			: getLocalNamesFromWikidata($resolvedPages, $fromWiki, $toWiki);
 	}
-	
+
 	$result = [];
 	foreach ($pages as $i) {
 		$page = isset($redirects[$i]) ? $redirects[$i] : $i;
@@ -69,8 +69,8 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			if (isset($x['query']['redirects'])) $e = $x['query']['redirects'][0]['from'];
 			if (isset($x['query']['normalized'])) $e = $x['query']['normalized'][0]['from'];
 			$missings[$e] = [
-				'langlinks' => count($p['langlinks']),
-				'links' => count($p['links'])
+				'langlinks' => isset($p['langlinks']) ? count($p['langlinks']) : 0,
+				'links' => isset($p['links']) ? count($p['links']) : 0
 			];
 		}
 		$result['#missings'] = $missings;
