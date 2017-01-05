@@ -271,6 +271,13 @@ function getResolvedRedirectPages($pages, $fromWiki, &$redirects) {
 				$redirects[$x['from']] = $x['to'];
 			}
 		}
+		if (isset($query['redirects']) && isset($query['normalized'])) {
+			foreach ($query['normalized'] as $x) {
+				if (isset($redirects[$x['to']])) {
+					$redirects[$x['from']] = $redirects[$x['to']];
+				}
+			}
+		}
 		foreach ($queryPages as $x) {
 			$titles[] = $x['title'];
 		}
