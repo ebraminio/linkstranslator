@@ -77,7 +77,7 @@ function getMissingsInfo($fromWiki, $pages) {
 			'lllimit' => '500',
 			'titles' => $page
 		]);
-	}, $pages), [CURLOPT_SSL_VERIFYPEER => false]);
+	}, $pages));
 
 	$missings = [];
 	foreach ($apiResult as $a) {
@@ -258,7 +258,7 @@ function getResolvedRedirectPages($pages, $fromWiki, &$redirects) {
 	$titles = [];
 	foreach ($apiResultArray as $i) {
 		$json = json_decode($i, true);
-		if (!is_array($json) || !isset($json['query'])) { continue; }
+		if (!is_array($json) || !isset($json['query']['pages'])) { continue; }
 		$query = $json['query'];
 		$queryPages = $query['pages'];
 		if (isset($query['redirects'])) {
@@ -279,7 +279,9 @@ function getResolvedRedirectPages($pages, $fromWiki, &$redirects) {
 			}
 		}
 		foreach ($queryPages as $x) {
-			$titles[] = $x['title'];
+			if (!isset($x['missing'])) {
+				$titles[] = $x['title'];
+			}
 		}
 	}
 	return $titles;
@@ -297,7 +299,7 @@ function batchApi($dbName, $pages, $requestCreator) {
 	$batches = array_chunk($pages, 50);
 	return multiRequest(array_map(function ($data) use ($host, $requestCreator) {
 		return 'https://' . $host . '/w/api.php?' . http_build_query($requestCreator($data));
-	}, $batches), [CURLOPT_SSL_VERIFYPEER => false]);
+	}, $batches));
 }
 
 // http://www.phpied.com/simultaneuos-http-requests-in-php-with-curl/
