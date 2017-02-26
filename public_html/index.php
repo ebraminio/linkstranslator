@@ -21,8 +21,10 @@ if ($USE_SQL) {
 	mysqli_close($db);
 }
 
+$debug = null;
+
 function translateLinks($pages, $fromWiki, $toWiki, $missings) {
-	global $USE_SQL;
+	global $USE_SQL, $debug;
 
 	$pages = array_unique($pages);
 
@@ -41,7 +43,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			? getWikidataIdSQL($resolvedPages, $fromWiki)
 			: getWikidataId($resolvedPages, $fromWiki);
 	} elseif ($toWiki === "imdbwiki") {
-		$equs = getImdbIdWikidata($pages, $fromWiki);
+		$equs = getImdbIdWikidata($resolvedPages, $fromWiki);
 	} else {
 		$equs = $USE_SQL
 			? getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki)
@@ -62,21 +64,28 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 		$result['#missings'] = getMissingsInfo($fromWiki, array_diff($pages, array_keys($result)));
 	}
 
+	if (!is_null($debug)) {
+		$result['#debug'] = $debug;
+	}
+
 	return $result;
 }
 
 function getMissingsInfo($fromWiki, $pages) {
 	$host = dbNameToOrigin($fromWiki);
 	$apiResult = multiRequest(array_map(function ($page) use ($host) {
-		return 'https://' . $host . '/w/api.php?' . http_build_query([
-			'action' => 'query',
-			'format' => 'json',
-			'prop' => 'langlinks|links',
-			'redirects' => '',
-			'pllimit' => '500',
-			'lllimit' => '500',
-			'titles' => $page
-		]);
+		return [
+			'url' => 'https://' . $host . '/w/api.php',
+			'post' => http_build_query([
+				'action' => 'query',
+				'format' => 'json',
+				'prop' => 'langlinks|links',
+				'redirects' => '',
+				'pllimit' => '500',
+				'lllimit' => '500',
+				'titles' => $page
+			])
+		];
 	}, $pages));
 
 	$missings = [];
@@ -108,7 +117,7 @@ function getImdbIdWikidata($pages, $fromWiki) {
 	$entities = [];
 	foreach ($apiResultArray as $i) {
 		$json = json_decode($i, true);
-		if (is_array($json) && isset($json['entities'])) {
+		if (isset($json['entities'])) {
 			foreach ($json['entities'] as $entity) {
 				$entities[] = $entity;
 			}
@@ -147,7 +156,7 @@ function getWikidataId($pages, $fromWiki) {
 	$entities = [];
 	foreach ($apiResultArray as $i) {
 		$json = json_decode($i, true);
-		if (is_array($json) && isset($json['entities'])) {
+		if (isset($json['entities'])) {
 			foreach ($json['entities'] as $entity) {
 				$entities[] = $entity;
 			}
@@ -222,7 +231,7 @@ function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	$entities = [];
 	foreach ($apiResultArray as $i) {
 		$json = json_decode($i, true);
-		if (is_array($json) && isset($json['entities'])) {
+		if (isset($json['entities'])) {
 			foreach ($json['entities'] as $entity) {
 				$entities[] = $entity;
 			}
@@ -298,7 +307,10 @@ function batchApi($dbName, $pages, $requestCreator) {
 	$host = dbNameToOrigin($dbName);
 	$batches = array_chunk($pages, 50);
 	return multiRequest(array_map(function ($data) use ($host, $requestCreator) {
-		return 'https://' . $host . '/w/api.php?' . http_build_query($requestCreator($data));
+		return [
+			'url' => 'https://' . $host . '/w/api.php',
+			'post' => $requestCreator($data)
+		];
 	}, $batches));
 }
 
