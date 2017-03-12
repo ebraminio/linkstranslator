@@ -28,19 +28,22 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	global $USE_SQL, $db;
 
 	// sanitize inputs
-	$pages = array_unique($pages);
-	if ($USE_SQL) {
-		foreach ($pages as &$p) {
-			$p = mysqli_real_escape_string($db, $p);
-		}
-	}
-
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return []; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
 	$toWiki = strtolower($toWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return []; };
 	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
+
+	$pages = array_unique($pages);
+
+	if ($USE_SQL) {
+		foreach ($pages as &$p) {
+			$p = mysqli_real_escape_string($db, $p);
+		}
+		$fromWiki = mysqli_real_escape_string($db, $fromWiki);
+		$toWiki = mysqli_real_escape_string($db, $toWiki);
+	}
 	//
 
 	$redirects = [];
@@ -271,8 +274,6 @@ WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$f
 function getLocalNamesFromWikidataSQL($pages, $fromWiki, $toWiki) {
 	global $db;
 
-	$fromWiki = mysqli_real_escape_string($db, $fromWiki);
-	$toWiki = mysqli_real_escape_string($db, $toWiki);
 	$query = "
 SELECT T2.ips_site_page, T1.ips_site_page
 FROM wb_items_per_site T1 INNER JOIN wb_items_per_site T2 ON T1.ips_item_id = T2.ips_item_id AND T2.ips_site_id = '$toWiki'
