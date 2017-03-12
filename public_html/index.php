@@ -7,6 +7,9 @@ $USE_SQL = file_exists('../replica.my.cnf');
 if ($USE_SQL) {
 	$ini = parse_ini_file('../replica.my.cnf');
 	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	if ($db === false) {
+		$USE_SQL = false;
+	}
 }
 
 $json = json_encode(translateLinks(
@@ -21,12 +24,16 @@ if ($USE_SQL) {
 	mysqli_close($db);
 }
 
-$debug = null;
-
 function translateLinks($pages, $fromWiki, $toWiki, $missings) {
-	global $USE_SQL, $debug;
+	global $USE_SQL, $db;
 
+	// sanitize inputs
 	$pages = array_unique($pages);
+	if ($USE_SQL) {
+		foreach ($pages as &$p) {
+			$p = mysqli_real_escape_string($db, $p);
+		}
+	}
 
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return []; };
@@ -34,6 +41,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$toWiki = strtolower($toWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return []; };
 	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
+	//
 
 	$redirects = [];
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
@@ -61,11 +69,10 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	}
 
 	if ($missings) {
-		$result['#missings'] = getMissingsInfo($fromWiki, array_diff($pages, array_keys($result)));
-	}
-
-	if (!is_null($debug)) {
-		$result['#debug'] = $debug;
+		$missingPages = array_diff($resolvedPages, array_keys($result));
+		$result['#missings'] = $USE_SQL
+			? getMissingsInfoSQL($fromWiki, $missingPages)
+			: getMissingsInfo($fromWiki, $missingPages);
 	}
 
 	return $result;
@@ -99,6 +106,54 @@ function getMissingsInfo($fromWiki, $pages) {
 		$missings[$e] = [
 			'langlinks' => isset($p['langlinks']) ? count($p['langlinks']) : 0,
 			'links' => isset($p['links']) ? count($p['links']) : 0
+		];
+	}
+	return $missings;
+}
+
+function getMissingsInfoSQL($fromWiki, $pages) {
+	global $ini, $db;
+
+	$localDb = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], $fromWiki . '_p');
+
+	$localPages = [];
+	foreach ($pages as $p) {
+		$localPages[] = str_replace(" ", "_", $p);
+	}
+
+	$query = "
+SELECT pl_title, COUNT(*)
+FROM pagelinks
+WHERE pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') GROUP BY pl_title;
+";
+	$dbResult = mysqli_query($localDb, $query);
+	if (!$dbResult) { return []; }
+	$backlinks = [];
+	while ($match = $dbResult->fetch_row()) {
+		$backlinks[str_replace("_", " ", $match[0])] = $match[1];
+	}
+	mysqli_free_result($dbResult);
+	mysqli_close($localDb);
+
+	$query = "
+SELECT T1.ips_site_page, COUNT(*)
+FROM wb_items_per_site T1 INNER JOIN wb_items_per_site T2 ON T1.ips_item_id = T2.ips_item_id
+WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '", $pages) . "')
+GROUP BY T1.ips_site_page
+";
+	$dbResult = mysqli_query($db, $query);
+	if (!$dbResult) { return []; }
+	$langlinks = [];
+	while ($match = $dbResult->fetch_row()) {
+		$langlinks[$match[0]] = $match[1];
+	}
+	mysqli_free_result($dbResult);
+
+	// merge results
+	foreach ($pages as $p) {
+		$missings[$p] = [
+			'langlinks' => isset($langlinks[$p]) ? $langlinks[$p] - 1 : 0,
+			'links' => isset($backlinks[$p]) ? $backlinks[$p] : 0
 		];
 	}
 	return $missings;
@@ -178,13 +233,11 @@ function getWikidataId($pages, $fromWiki) {
 function getWikidataIdSQL($pages, $fromWiki) {
 	global $db;
 
-	foreach ($pages as &$p) {
-		$p = mysqli_real_escape_string($db, $p);
-	}
 	$query = "
 SELECT CONCAT('Q', ips_item_id), ips_site_page
 FROM wb_items_per_site
-WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$fromWiki'";
+WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$fromWiki'
+";
 	$dbResult = mysqli_query($db, $query);
 	if (!$dbResult) { return []; }
 	$equs = [];
@@ -200,9 +253,6 @@ function getLocalNamesFromWikidataSQL($pages, $fromWiki, $toWiki) {
 
 	$fromWiki = mysqli_real_escape_string($db, $fromWiki);
 	$toWiki = mysqli_real_escape_string($db, $toWiki);
-	foreach ($pages as &$p) {
-		$p = mysqli_real_escape_string($db, $p);
-	}
 	$query = "
 SELECT T2.ips_site_page, T1.ips_site_page
 FROM wb_items_per_site T1 INNER JOIN wb_items_per_site T2 ON T1.ips_item_id = T2.ips_item_id AND T2.ips_site_id = '$toWiki'
