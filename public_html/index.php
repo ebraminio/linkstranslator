@@ -73,7 +73,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	}
 
 	if ($missings) {
-		$missingsPages = array_diff($resolvedPages, array_keys($result));
+		$missingsPages = array_diff($resolvedPages, array_keys($equs));
 		$missingsStats = $USE_SQL
 			? getMissingsInfoSQL($fromWiki, $missingsPages)
 			: getMissingsInfo($fromWiki, $missingsPages);
@@ -173,7 +173,7 @@ GROUP BY T1.ips_site_page
 	foreach ($pages as $p) {
 		$missings[$p] = [
 			'langlinks' => isset($langlinks[$p]) ? $langlinks[$p] - 1 : 0,
-			'links' => isset($backlinks[$p]) ? $backlinks[$p] : 0
+			'links' => isset($backlinks[$p]) ? $backlinks[$p] + 0 : 0
 		];
 	}
 	return $missings;
