@@ -38,9 +38,6 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$pages = array_unique($pages);
 
 	if ($USE_SQL) {
-		foreach ($pages as &$p) {
-			$p = mysqli_real_escape_string($db, $p);
-		}
 		$fromWiki = mysqli_real_escape_string($db, $fromWiki);
 		$toWiki = mysqli_real_escape_string($db, $toWiki);
 	}
@@ -134,8 +131,13 @@ function getMissingsInfo($fromWiki, $pages) {
 	return $missings;
 }
 
-function getMissingsInfoSQL($fromWiki, $pages) {
+function getMissingsInfoSQL($fromWiki, $rawPages) {
 	global $ini, $db;
+
+	$pages = [];
+	foreach ($rawPages as &$p) {
+		$pages[] = mysqli_real_escape_string($db, $p);
+	}
 
 	$localDb = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], $fromWiki . '_p');
 
@@ -253,8 +255,13 @@ function getWikidataId($pages, $fromWiki) {
 	return $equs;
 }
 
-function getWikidataIdSQL($pages, $fromWiki) {
+function getWikidataIdSQL($rawPages, $fromWiki) {
 	global $db;
+
+	$pages = [];
+	foreach ($rawPages as &$p) {
+		$pages[] = mysqli_real_escape_string($db, $p);
+	}
 
 	$query = "
 SELECT CONCAT('Q', ips_item_id), ips_site_page
@@ -271,8 +278,13 @@ WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$f
 	return $equs;
 }
 
-function getLocalNamesFromWikidataSQL($pages, $fromWiki, $toWiki) {
+function getLocalNamesFromWikidataSQL($rawPages, $fromWiki, $toWiki) {
 	global $db;
+
+	$pages = [];
+	foreach ($rawPages as &$p) {
+		$pages[] = mysqli_real_escape_string($db, $p);
+	}
 
 	$query = "
 SELECT T2.ips_site_page, T1.ips_site_page
