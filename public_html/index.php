@@ -64,12 +64,6 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 		if (isset($equs[$page])) {
 			$result[$i] = $equs[$page];
 		}
-
-		$i = str_replace('_', ' ', $i);
-		$page = isset($redirects[$i]) ? $redirects[$i] : $i;
-		if (isset($equs[$page])) {
-			$result[$i] = $equs[$page];
-		}
 	}
 
 	if ($missings) {
@@ -80,12 +74,6 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 
 		$missingsResult = [];
 		foreach ($pages as $i) {
-			$page = isset($redirects[$i]) ? $redirects[$i] : $i;
-			if (isset($missingsStats[$page])) {
-				$missingsResult[$i] = $missingsStats[$page];
-			}
-
-			$i = str_replace('_', ' ', $i);
 			$page = isset($redirects[$i]) ? $redirects[$i] : $i;
 			if (isset($missingsStats[$page])) {
 				$missingsResult[$i] = $missingsStats[$page];
