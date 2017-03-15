@@ -12,13 +12,12 @@ if ($USE_SQL) {
 	}
 }
 
-$json = json_encode(translateLinks(
+echo json_encode(translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : explode('|', $_REQUEST['p'])) : [],
 	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
 	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
 	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false
-));
-echo $json !== '[]' ? $json : '{}';
+), JSON_FORCE_OBJECT);
 
 if ($USE_SQL) {
 	mysqli_close($db);
