@@ -143,7 +143,11 @@ FROM pagelinks
 WHERE pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') GROUP BY pl_title;
 ";
 	$dbResult = mysqli_query($localDb, $query);
-	if (!$dbResult) { return []; }
+	if (!$dbResult) {
+		error_log(mysqli_error($localDb));
+		error_log($query);
+		return getMissingsInfo($fromWiki, $rawPages);
+	}
 	$backlinks = [];
 	while ($match = $dbResult->fetch_row()) {
 		$backlinks[str_replace('_', ' ', $match[0])] = $match[1];
@@ -158,7 +162,11 @@ WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '",
 GROUP BY T1.ips_site_page
 ";
 	$dbResult = mysqli_query($db, $query);
-	if (!$dbResult) { return []; }
+	if (!$dbResult) {
+		error_log(mysqli_error($db));
+		error_log($query);
+		return getMissingsInfo($fromWiki, $rawPages);
+	}
 	$langlinks = [];
 	while ($match = $dbResult->fetch_row()) {
 		$langlinks[$match[0]] = $match[1];
@@ -261,7 +269,11 @@ FROM wb_items_per_site
 WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$fromWiki'
 ";
 	$dbResult = mysqli_query($db, $query);
-	if (!$dbResult) { return []; }
+	if (!$dbResult) {
+		error_log(mysqli_error($db));
+		error_log($query);
+		return getWikidataId($rawPages, $fromWiki);
+	}
 	$equs = [];
 	while ($match = $dbResult->fetch_row()) {
 		$equs[$match[1]] = $match[0];
@@ -284,6 +296,11 @@ FROM wb_items_per_site T1 INNER JOIN wb_items_per_site T2 ON T1.ips_item_id = T2
 WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '", $pages) . "')
 ";
 	$dbResult = mysqli_query($db, $query);
+	if (!$dbResult) {
+		error_log(mysqli_error($db));
+		error_log($query);
+		return getLocalNamesFromWikidata($rawPages, $fromWiki, $toWiki);
+	}
 	if (!$dbResult) { return []; }
 	$equs = [];
 	while ($match = $dbResult->fetch_row()) {
