@@ -17,7 +17,7 @@ echo json_encode(translateLinks(
 	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
 	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
 	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false
-), JSON_FORCE_OBJECT);
+), JSON_FORCE_OBJECT | JSON_UNESCAPED_UNICODE);
 
 if ($USE_SQL) {
 	mysqli_close($db);
