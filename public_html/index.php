@@ -26,12 +26,16 @@ if ($USE_SQL) {
 function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	global $USE_SQL, $db;
 
+	if (count($pages) === 0) {
+		return ['#documentation' => 'A service to translate links based on Wikipedia language links, use it like: ?p=Earth|Moon|Human|Water&from=en&to=de Source: github.com/ebraminio/linkstranslator'];
+	}
+
 	// sanitize inputs
 	$fromWiki = strtolower($fromWiki);
-	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return (object)[]; };
+	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return ['#error' => 'Invalid "from" is provided']; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
 	$toWiki = strtolower($toWiki);
-	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return (object)[]; };
+	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return ['#error' => 'Invalid "to" is provided']; };
 	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
 
 	$pages = array_unique($pages);
@@ -45,11 +49,11 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$redirects = [];
 	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
 
-	if ($toWiki === "wikidatawiki") {
+	if ($toWiki === 'wikidatawiki') {
 		$equs = $USE_SQL
 			? getWikidataIdSQL($resolvedPages, $fromWiki)
 			: getWikidataId($resolvedPages, $fromWiki);
-	} elseif ($toWiki === "imdbwiki") {
+	} elseif ($toWiki === 'imdbwiki') {
 		$equs = getImdbIdWikidata($resolvedPages, $fromWiki);
 	} else {
 		$equs = $USE_SQL
@@ -130,7 +134,7 @@ function getMissingsInfoSQL($fromWiki, $rawPages) {
 
 	$localPages = [];
 	foreach ($pages as $p) {
-		$localPages[] = str_replace(" ", "_", $p);
+		$localPages[] = str_replace(' ', '_', $p);
 	}
 
 	$query = "
@@ -142,7 +146,7 @@ WHERE pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') 
 	if (!$dbResult) { return []; }
 	$backlinks = [];
 	while ($match = $dbResult->fetch_row()) {
-		$backlinks[str_replace("_", " ", $match[0])] = $match[1];
+		$backlinks[str_replace('_', ' ', $match[0])] = $match[1];
 	}
 	mysqli_free_result($dbResult);
 	mysqli_close($localDb);
@@ -370,7 +374,7 @@ function dbNameToOrigin($dbName) {
 	if ($dbName === 'wikidatawiki') { return 'www.wikidata.org'; }
 	if ($dbName === 'commonswiki') { return 'commons.wikimedia.org'; }
 	$p = explode('wiki', $dbName);
-	return str_replace("_", "-", $p[0]) . '.wiki' . (isset($p[1]) && strlen($p[1]) ? $p[1] : 'pedia') . '.org';
+	return str_replace('_', '-', $p[0]) . '.wiki' . (isset($p[1]) && strlen($p[1]) ? $p[1] : 'pedia') . '.org';
 }
 
 function batchApi($dbName, $pages, $requestCreator) {
