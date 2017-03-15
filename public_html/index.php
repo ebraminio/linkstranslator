@@ -166,6 +166,7 @@ GROUP BY T1.ips_site_page
 	mysqli_free_result($dbResult);
 
 	// merge results
+	$missings = [];
 	foreach ($pages as $p) {
 		$missings[$p] = [
 			'langlinks' => isset($langlinks[$p]) ? $langlinks[$p] - 1 : 0,
