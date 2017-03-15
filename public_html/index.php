@@ -17,7 +17,7 @@ echo json_encode(translateLinks(
 	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
 	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
 	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false
-), JSON_FORCE_OBJECT | JSON_UNESCAPED_UNICODE);
+), JSON_UNESCAPED_UNICODE);
 
 if ($USE_SQL) {
 	mysqli_close($db);
@@ -28,10 +28,10 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 
 	// sanitize inputs
 	$fromWiki = strtolower($fromWiki);
-	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return []; };
+	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return (object)[]; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
 	$toWiki = strtolower($toWiki);
-	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return []; };
+	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return (object)[]; };
 	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
 
 	$pages = array_unique($pages);
@@ -79,10 +79,10 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			}
 		}
 
-		$result['#missings'] = $missingsResult;
+		$result['#missings'] = (object)$missingsResult;
 	}
 
-	return $result;
+	return (object)$result;
 }
 
 function getMissingsInfo($fromWiki, $pages) {
