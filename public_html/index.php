@@ -39,19 +39,13 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 
 	$pages = array_unique($pages);
 
-	$redirects = [];
-	$missed = [];
-	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects, $missed);
+	$titlesMap = resolvePages($pages, $fromWiki);
 
 	if ($fromWiki === $toWiki) {
-		$result = [];
-		foreach ($pages as $p) {
-			if (!in_array($p, $missed)) {
-				$result[$p] = isset($redirects[$p]) ? $redirects[$p] : $p;
-			}
-		}
-		return $result;
+		return (object)$titlesMap;
 	}
+
+	$resolvedPages = array_unique(array_values($titlesMap));
 
 	if ($toWiki === 'wikidatawiki') {
 		$equs = $USE_SQL
@@ -65,11 +59,9 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			: getLocalNamesFromWikidata($resolvedPages, $fromWiki, $toWiki);
 	}
 
-	$result = [];
-	foreach ($pages as $p) {
-		$page = isset($redirects[$p]) ? $redirects[$p] : $p;
-		if (isset($equs[$page])) {
-			$result[$p] = $equs[$page];
+	foreach ($titlesMap as $p => $r) {
+		if (isset($equs[$r])) {
+			$result[$p] = $equs[$r];
 		}
 	}
 
@@ -80,10 +72,9 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			: getMissingsInfo($fromWiki, $missingsPages);
 
 		$missingsResult = [];
-		foreach ($pages as $p) {
-			$page = isset($redirects[$p]) ? $redirects[$p] : $p;
-			if (isset($missingsStats[$page])) {
-				$missingsResult[$p] = $missingsStats[$page];
+		foreach ($titlesMap as $p => $r) {
+			if (isset($missingsStats[$r])) {
+				$missingsResult[$p] = $missingsStats[$r];
 			}
 		}
 
@@ -351,7 +342,7 @@ function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	return $equs;
 }
 
-function getResolvedRedirectPages($pages, $fromWiki, &$redirects, &$missed) {
+function resolvePages($pages, $fromWiki) {
 	$apiResultArray = batchApi($fromWiki, $pages, function ($batch) {
 		return [
 			'action' => 'query',
@@ -360,38 +351,46 @@ function getResolvedRedirectPages($pages, $fromWiki, &$redirects, &$missed) {
 			'titles' => implode('|', $batch)
 		];
 	});
-	$titles = [];
+
+	$normalizes = [];
+	$redirects = [];
+	$missings = [];
 	foreach ($apiResultArray as $i) {
 		$json = json_decode($i, true);
 		if (!is_array($json) || !isset($json['query']['pages'])) { continue; }
 		$query = $json['query'];
 		$queryPages = $query['pages'];
+		if (isset($query['normalized'])) {
+			foreach ($query['normalized'] as $x) {
+				$normalizes[$x['from']] = $x['to'];
+			}
+		}
 		if (isset($query['redirects'])) {
 			foreach ($query['redirects'] as $x) {
 				$redirects[$x['from']] = $x['to'];
 			}
 		}
-		if (isset($query['normalized'])) {
-			foreach ($query['normalized'] as $x) {
-				$redirects[$x['from']] = $x['to'];
-			}
-		}
-		if (isset($query['redirects']) && isset($query['normalized'])) {
-			foreach ($query['normalized'] as $x) {
-				if (isset($redirects[$x['to']])) {
-					$redirects[$x['from']] = $redirects[$x['to']];
-				}
-			}
-		}
 		foreach ($queryPages as $x) {
-			if (!isset($x['missing'])) {
-				$titles[] = $x['title'];
-			} else {
-				$missed[] = $x['title'];
+			if (isset($x['missing'])) {
+				$missings[] = $x['title'];
 			}
 		}
 	}
-	return $titles;
+
+	$result = [];
+	foreach ($pages as $p) {
+		if (!in_array($p, $missings)) {
+			$resolved = $p;
+			if (isset($normalizes[$resolved])) {
+				$resolved = $normalizes[$resolved];
+			}
+			if (isset($redirects[$resolved])) {
+				$resolved = $redirects[$resolved];
+			}
+			$result[$p] = $resolved;
+		}
+	}
+	return $result;
 }
 
 function dbNameToOrigin($dbName) {
