@@ -30,7 +30,6 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 		return ['#documentation' => 'A service to translate links based on Wikipedia language links, use it like: ?p=Earth|Moon|Human|Water&from=en&to=de Source: github.com/ebraminio/linkstranslator'];
 	}
 
-	// sanitize inputs
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return ['#error' => 'Invalid "from" is provided']; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
@@ -40,14 +39,19 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 
 	$pages = array_unique($pages);
 
-	if ($USE_SQL) {
-		$fromWiki = mysqli_real_escape_string($db, $fromWiki);
-		$toWiki = mysqli_real_escape_string($db, $toWiki);
-	}
-	//
-
 	$redirects = [];
-	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects);
+	$missed = [];
+	$resolvedPages = getResolvedRedirectPages($pages, $fromWiki, $redirects, $missed);
+
+	if ($fromWiki === $toWiki) {
+		$result = [];
+		foreach ($pages as $p) {
+			if (!in_array($p, $missed)) {
+				$result[$p] = isset($redirects[$p]) ? $redirects[$p] : $p;
+			}
+		}
+		return $result;
+	}
 
 	if ($toWiki === 'wikidatawiki') {
 		$equs = $USE_SQL
@@ -62,10 +66,10 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	}
 
 	$result = [];
-	foreach ($pages as $i) {
-		$page = isset($redirects[$i]) ? $redirects[$i] : $i;
+	foreach ($pages as $p) {
+		$page = isset($redirects[$p]) ? $redirects[$p] : $p;
 		if (isset($equs[$page])) {
-			$result[$i] = $equs[$page];
+			$result[$p] = $equs[$page];
 		}
 	}
 
@@ -76,10 +80,10 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			: getMissingsInfo($fromWiki, $missingsPages);
 
 		$missingsResult = [];
-		foreach ($pages as $i) {
-			$page = isset($redirects[$i]) ? $redirects[$i] : $i;
+		foreach ($pages as $p) {
+			$page = isset($redirects[$p]) ? $redirects[$p] : $p;
 			if (isset($missingsStats[$page])) {
-				$missingsResult[$i] = $missingsStats[$page];
+				$missingsResult[$p] = $missingsStats[$page];
 			}
 		}
 
@@ -126,7 +130,7 @@ function getMissingsInfoSQL($fromWiki, $rawPages) {
 	global $ini, $db;
 
 	$pages = [];
-	foreach ($rawPages as &$p) {
+	foreach ($rawPages as $p) {
 		$pages[] = mysqli_real_escape_string($db, $p);
 	}
 
@@ -259,7 +263,7 @@ function getWikidataIdSQL($rawPages, $fromWiki) {
 	global $db;
 
 	$pages = [];
-	foreach ($rawPages as &$p) {
+	foreach ($rawPages as $p) {
 		$pages[] = mysqli_real_escape_string($db, $p);
 	}
 
@@ -286,7 +290,7 @@ function getLocalNamesFromWikidataSQL($rawPages, $fromWiki, $toWiki) {
 	global $db;
 
 	$pages = [];
-	foreach ($rawPages as &$p) {
+	foreach ($rawPages as $p) {
 		$pages[] = mysqli_real_escape_string($db, $p);
 	}
 
@@ -347,7 +351,7 @@ function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	return $equs;
 }
 
-function getResolvedRedirectPages($pages, $fromWiki, &$redirects) {
+function getResolvedRedirectPages($pages, $fromWiki, &$redirects, &$missed) {
 	$apiResultArray = batchApi($fromWiki, $pages, function ($batch) {
 		return [
 			'action' => 'query',
@@ -382,6 +386,8 @@ function getResolvedRedirectPages($pages, $fromWiki, &$redirects) {
 		foreach ($queryPages as $x) {
 			if (!isset($x['missing'])) {
 				$titles[] = $x['title'];
+			} else {
+				$missed[] = $x['title'];
 			}
 		}
 	}
