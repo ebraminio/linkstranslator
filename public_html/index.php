@@ -2,13 +2,13 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
-$USE_SQL = file_exists('../replica.my.cnf');
+$useDb = file_exists('../replica.my.cnf');
 
-if ($USE_SQL) {
+if ($useDb) {
 	$ini = parse_ini_file('../replica.my.cnf');
 	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
 	if ($db === false) {
-		$USE_SQL = false;
+		$useDb = false;
 	}
 }
 
@@ -16,16 +16,15 @@ echo json_encode(translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : explode('|', $_REQUEST['p'])) : [],
 	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
 	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
-	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false
+	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false,
+	$useDb
 ), JSON_UNESCAPED_UNICODE);
 
-if ($USE_SQL) {
+if ($useDb) {
 	mysqli_close($db);
 }
 
-function translateLinks($pages, $fromWiki, $toWiki, $missings) {
-	global $USE_SQL, $db;
-
+function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 	if (count($pages) === 0) {
 		return ['#documentation' => 'A service to translate links based on Wikipedia language links, use it like: ?p=Earth|Moon|Human|Water&from=en&to=de Source: github.com/ebraminio/linkstranslator'];
 	}
@@ -48,13 +47,13 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	$resolvedPages = array_unique(array_values($titlesMap));
 
 	if ($toWiki === 'wikidatawiki') {
-		$equs = $USE_SQL
+		$equs = $useDb
 			? getWikidataIdSQL($resolvedPages, $fromWiki)
 			: getWikidataId($resolvedPages, $fromWiki);
 	} elseif ($toWiki === 'imdbwiki') {
 		$equs = getImdbIdWikidata($resolvedPages, $fromWiki);
 	} else {
-		$equs = $USE_SQL
+		$equs = $useDb
 			? getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki)
 			: getLocalNamesFromWikidata($resolvedPages, $fromWiki, $toWiki);
 	}
@@ -68,7 +67,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 
 	if ($missings) {
 		$missingsPages = array_diff($resolvedPages, array_keys($equs));
-		$missingsStats = $USE_SQL
+		$missingsStats = $useDb
 			? getMissingsInfoSQL($missingsPages, $fromWiki)
 			: getMissingsInfo($missingsPages, $fromWiki);
 
