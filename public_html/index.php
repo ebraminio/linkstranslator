@@ -59,6 +59,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 			: getLocalNamesFromWikidata($resolvedPages, $fromWiki, $toWiki);
 	}
 
+	$result = [];
 	foreach ($titlesMap as $p => $r) {
 		if (isset($equs[$r])) {
 			$result[$p] = $equs[$r];
