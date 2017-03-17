@@ -68,8 +68,8 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	if ($missings) {
 		$missingsPages = array_diff($resolvedPages, array_keys($equs));
 		$missingsStats = $USE_SQL
-			? getMissingsInfoSQL($fromWiki, $missingsPages)
-			: getMissingsInfo($fromWiki, $missingsPages);
+			? getMissingsInfoSQL($missingsPages, $fromWiki)
+			: getMissingsInfo($missingsPages, $fromWiki);
 
 		$missingsResult = [];
 		foreach ($titlesMap as $p => $r) {
@@ -84,7 +84,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings) {
 	return (object)$result;
 }
 
-function getMissingsInfo($fromWiki, $pages) {
+function getMissingsInfo($pages, $fromWiki) {
 	$host = dbNameToOrigin($fromWiki);
 	$apiResult = multiRequest(array_map(function ($page) use ($host) {
 		return [
@@ -117,7 +117,7 @@ function getMissingsInfo($fromWiki, $pages) {
 	return $missings;
 }
 
-function getMissingsInfoSQL($fromWiki, $rawPages) {
+function getMissingsInfoSQL($rawPages, $fromWiki) {
 	global $ini, $db;
 
 	$pages = [];
@@ -141,7 +141,7 @@ WHERE pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') 
 	if (!$dbResult) {
 		error_log(mysqli_error($localDb));
 		error_log($query);
-		return getMissingsInfo($fromWiki, $rawPages);
+		return getMissingsInfo($rawPages, $fromWiki);
 	}
 	$backlinks = [];
 	while ($match = $dbResult->fetch_row()) {
@@ -160,7 +160,7 @@ GROUP BY T1.ips_site_page
 	if (!$dbResult) {
 		error_log(mysqli_error($db));
 		error_log($query);
-		return getMissingsInfo($fromWiki, $rawPages);
+		return getMissingsInfo($rawPages, $fromWiki);
 	}
 	$langlinks = [];
 	while ($match = $dbResult->fetch_row()) {
