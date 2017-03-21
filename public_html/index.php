@@ -1,4 +1,6 @@
 <?php
+error_reporting(-1);
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
@@ -135,7 +137,7 @@ function getMissingsInfoSQL($rawPages, $fromWiki) {
 	$query = "
 SELECT pl_title, COUNT(*)
 FROM pagelinks
-WHERE pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') GROUP BY pl_title;
+WHERE pl_from_namespace = 0 AND pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') GROUP BY pl_title;
 ";
 	$dbResult = mysqli_query($localDb, $query);
 	if (!$dbResult) {
