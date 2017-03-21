@@ -34,6 +34,13 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return ['#error' => 'Invalid "from" is provided']; };
 	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
+
+	if ($toWiki === 'info') {
+		return $useDb
+			? (object)getLinksInfoSQL(array_values($pages), $fromWiki)
+			: (object)getLinksInfo(array_values($pages), $fromWiki);
+	}
+
 	$toWiki = strtolower($toWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return ['#error' => 'Invalid "to" is provided']; };
 	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
@@ -70,8 +77,8 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 	if ($missings) {
 		$missingsPages = array_diff($resolvedPages, array_keys($equs));
 		$missingsStats = $useDb
-			? getMissingsInfoSQL($missingsPages, $fromWiki)
-			: getMissingsInfo($missingsPages, $fromWiki);
+			? getLinksInfoSQL($missingsPages, $fromWiki)
+			: getLinksInfo($missingsPages, $fromWiki);
 
 		$missingsResult = [];
 		foreach ($titlesMap as $p => $r) {
@@ -86,7 +93,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 	return (object)$result;
 }
 
-function getMissingsInfo($pages, $fromWiki) {
+function getLinksInfo($pages, $fromWiki) {
 	$host = dbNameToOrigin($fromWiki);
 	$apiResult = multiRequest(array_map(function ($page) use ($host) {
 		return [
@@ -119,7 +126,7 @@ function getMissingsInfo($pages, $fromWiki) {
 	return $missings;
 }
 
-function getMissingsInfoSQL($rawPages, $fromWiki) {
+function getLinksInfoSQL($rawPages, $fromWiki) {
 	global $ini, $db;
 
 	$pages = [];
@@ -143,7 +150,7 @@ WHERE pl_from_namespace = 0 AND pl_namespace = 0 AND pl_title IN ('" . implode("
 	if (!$dbResult) {
 		error_log(mysqli_error($localDb));
 		error_log($query);
-		return getMissingsInfo($rawPages, $fromWiki);
+		return getLinksInfo($rawPages, $fromWiki);
 	}
 	$backlinks = [];
 	while ($match = $dbResult->fetch_row()) {
@@ -162,7 +169,7 @@ GROUP BY T1.ips_site_page
 	if (!$dbResult) {
 		error_log(mysqli_error($db));
 		error_log($query);
-		return getMissingsInfo($rawPages, $fromWiki);
+		return getLinksInfo($rawPages, $fromWiki);
 	}
 	$langlinks = [];
 	while ($match = $dbResult->fetch_row()) {
