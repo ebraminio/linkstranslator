@@ -33,7 +33,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return ['#error' => 'Invalid "from" is provided']; };
-	if (preg_match('/wiki/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
+	if (preg_match('/.wiki/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
 
 	if ($toWiki === 'info') {
 		return $useDb
@@ -43,7 +43,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 
 	$toWiki = strtolower($toWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $toWiki) === 0) { return ['#error' => 'Invalid "to" is provided']; };
-	if (preg_match('/wiki$/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
+	if (preg_match('/.wiki/', $toWiki) === 0) { $toWiki = $toWiki . 'wiki'; }
 
 	$pages = array_unique($pages);
 
