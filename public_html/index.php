@@ -33,7 +33,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return ['#error' => 'Invalid "from" is provided']; };
-	if (preg_match('/wiki$/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
+	if (preg_match('/wiki/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
 
 	if ($toWiki === 'info') {
 		return $useDb
