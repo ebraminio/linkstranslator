@@ -61,6 +61,8 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 			: getWikidataId($resolvedPages, $fromWiki);
 	} elseif ($toWiki === 'imdbwiki') {
 		$equs = getImdbIdWikidata($resolvedPages, $fromWiki);
+	}  elseif ($toWiki === 'unicodewiki') {
+		$equs = getUnicodeWikidata($resolvedPages, $fromWiki);
 	} else {
 		$equs = $useDb
 			? getLocalNamesFromWikidataSQL($resolvedPages, $fromWiki, $toWiki)
@@ -221,6 +223,54 @@ function getImdbIdWikidata($pages, $fromWiki) {
 			continue;
 
 		$to = $entity['claims']['P345'][0]['mainsnak']['datavalue']['value'];
+
+		$equs[$from] = $to;
+	}
+	return $equs;
+}
+
+function getUnicodeWikidata($pages, $fromWiki) {
+	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
+		return $fromWiki === 'wikidatawiki' ? [
+			'action' => 'wbgetentities',
+			'format' => 'json',
+			'ids' => implode('|', $batch),
+			'props' => 'claims'
+		] : [
+			'action' => 'wbgetentities',
+			'format' => 'json',
+			'sites' => $fromWiki,
+			'titles' => implode('|', $batch),
+			'props' => 'sitelinks|claims'
+		];
+	});
+	$entities = [];
+	foreach ($apiResultArray as $i) {
+		$json = json_decode($i, true);
+		if (isset($json['entities'])) {
+			foreach ($json['entities'] as $entity) {
+				$entities[] = $entity;
+			}
+		}
+	}
+
+	$equs = [];
+	foreach ($entities as $entity) {
+		if ($fromWiki === 'wikidatawiki') {
+			$from = $entity['id'];
+		} else {
+			if (!isset($entity['sitelinks'])) { continue; }
+
+			// not updated Wikidata items may don't have title on their sitelinks
+			$from = isset($entity['sitelinks'][$fromWiki]['title'])
+				? $entity['sitelinks'][$fromWiki]['title']
+				: $entity['sitelinks'][$fromWiki];
+		}
+
+		if (!isset($entity['claims']['P487'][0]['mainsnak']['datavalue']['value']))
+			continue;
+
+		$to = $entity['claims']['P487'][0]['mainsnak']['datavalue']['value'];
 
 		$equs[$from] = $to;
 	}
