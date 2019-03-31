@@ -290,15 +290,27 @@ function getLocalNamesFromWikidataSQL($rawPages, $fromWiki, $toWiki) {
 	global $db;
 
 	$pages = [];
-	foreach ($rawPages as $p) {
-		$pages[] = mysqli_real_escape_string($db, $p);
-	}
+	if ($fromWiki === 'wikidatawiki') {
+		foreach ($rawPages as $p) {
+			$pages[] = mysqli_real_escape_string($db, str_replace('Q', '', $p));
+		}
 
-	$query = "
+		$query = "
+SELECT ips_site_page, CONCAT('Q', ips_item_id)
+FROM wb_items_per_site
+WHERE ips_site_id = '$toWiki' AND ips_item_id IN ('" . implode("', '", $pages) . "')
+";
+	} else {
+		foreach ($rawPages as $p) {
+			$pages[] = mysqli_real_escape_string($db, $p);
+		}
+
+		$query = "
 SELECT T2.ips_site_page, T1.ips_site_page
 FROM wb_items_per_site T1 INNER JOIN wb_items_per_site T2 ON T1.ips_item_id = T2.ips_item_id AND T2.ips_site_id = '$toWiki'
 WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '", $pages) . "')
 ";
+	}
 	$dbResult = mysqli_query($db, $query);
 	if (!$dbResult) {
 		error_log(mysqli_error($db));
@@ -316,7 +328,12 @@ WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '",
 
 function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
-		return [
+		return $fromWiki === 'wikidatawiki' ? [
+			'action' => 'wbgetentities',
+			'format' => 'json',
+			'ids' => implode('|', $batch),
+			'props' => 'sitelinks'
+		] : [
 			'action' => 'wbgetentities',
 			'format' => 'json',
 			'sites' => $fromWiki,
@@ -338,10 +355,14 @@ function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	foreach ($entities as $entity) {
 		if (!isset($entity['sitelinks']) || !isset($entity['sitelinks'][$toWiki])) { continue; }
 
-		// not updated Wikidata items may don't have title on their sitelinks
-		$from = isset($entity['sitelinks'][$fromWiki]['title'])
-			? $entity['sitelinks'][$fromWiki]['title']
-			: $entity['sitelinks'][$fromWiki];
+		if ($fromWiki === 'wikidatawiki') {
+			$from = $entity['id'];
+		} else {
+			// not updated Wikidata items may don't have title on their sitelinks
+			$from = isset($entity['sitelinks'][$fromWiki]['title'])
+				? $entity['sitelinks'][$fromWiki]['title']
+				: $entity['sitelinks'][$fromWiki];
+		}
 		$to = isset($entity['sitelinks'][$toWiki]['title'])
 			? $entity['sitelinks'][$toWiki]['title']
 			: $entity['sitelinks'][$toWiki];
