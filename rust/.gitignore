@@ -1,0 +1,4 @@
+# Based on https://github.com/github/gitignore/blob/master/Rust.gitignore
+/target/
+Cargo.lock
+**/*.rs.bk

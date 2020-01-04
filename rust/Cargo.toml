@@ -1,0 +1,19 @@
+[package]
+name = "links-translator"
+version = "0.1.0"
+authors = ["Ebrahim Byagowi <ebrahim@gnu.org>"]
+edition = "2018"
+
+[dependencies]
+futures-core = { version = "0.3", default-features = false }
+futures = "0.3.0"
+futures-channel = "0.3"
+futures-util = { version = "0.3", default-features = false }
+tokio = { version = "0.2.6", features = ["full"] }
+hyper = "0.13.1"
+mime = "0.3"
+http = "0.2"
+url = "2.1.0"
+reqwest = "0.10.0"
+serde_json = "1.0.44"
+failure = "0.1.6"
