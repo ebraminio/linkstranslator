@@ -16,9 +16,11 @@ if ($useDb) {
 
 echo json_encode(translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : explode('|', $_REQUEST['p'])) : [],
-	isset($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
-	isset($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
-	isset($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false,
+	isset($_REQUEST['from']) && is_string($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
+	isset($_REQUEST['to']) && is_string($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
+	isset($_REQUEST['missings']) && is_string($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false,
+	isset($_REQUEST['fromCategory']) && is_string($_REQUEST['fromCategory']) ? $_REQUEST['fromCategory'] : null, # source wiki category
+	isset($_REQUEST['notToCategory']) && is_string($_REQUEST['notToCategory']) ? $_REQUEST['notToCategory'] : null, # destination wiki cateegory
 	$useDb
 ), JSON_UNESCAPED_UNICODE);
 
@@ -26,14 +28,19 @@ if ($useDb) {
 	mysqli_close($db);
 }
 
-function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
-	if (count($pages) === 0) {
+function translateLinks($pages, $fromWiki, $toWiki, $missings, $fromCategory, $notToCategory, $useDb) {
+	if (count($pages) === 0 && $fromCategory === null) {
 		return ['#documentation' => 'A service to translate links based on Wikipedia language links, use it like: ?p=Earth|Moon|Human|Water&from=en&to=de Source: github.com/ebraminio/linkstranslator'];
 	}
 
 	$fromWiki = strtolower($fromWiki);
 	if (preg_match('/^[a-z_]{1,20}$/', $fromWiki) === 0) { return ['#error' => 'Invalid "from" is provided']; };
 	if (preg_match('/.wiki/', $fromWiki) === 0) { $fromWiki = $fromWiki . 'wiki'; }
+
+	if ($fromCategory !== null) {
+		if (!$useDb) { return ['#error' => 'Currently not supported without db access']; }
+		$pages = getPagesOfCategorySQL($fromCategory, $fromWiki);
+	}
 
 	if ($toWiki === 'info') {
 		return $useDb
@@ -61,7 +68,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 			: getWikidataId($resolvedPages, $fromWiki);
 	} elseif ($toWiki === 'imdbwiki') {
 		$equs = getImdbIdWikidata($resolvedPages, $fromWiki);
-	}  elseif ($toWiki === 'unicodewiki') {
+	} elseif ($toWiki === 'unicodewiki') {
 		$equs = getUnicodeWikidata($resolvedPages, $fromWiki);
 	} else {
 		$equs = $useDb
@@ -90,6 +97,17 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $useDb) {
 		}
 
 		$result['#missings'] = (object)$missingsResult;
+	}
+
+	if ($notToCategory !== null) {
+		if (!$useDb) { return ['#error' => 'Currently not supported without db access']; }
+		$pagesInCategory = getPagesOfCategorySQL($notToCategory, $toWiki);
+		$filteredResult = [];
+		foreach ($result as $p => $r) {
+			if (!in_array($r, $pagesInCategory))
+				$filteredResult[$p] = $r;
+		}
+		$result = $filteredResult;
 	}
 
 	return (object)$result;
@@ -188,6 +206,29 @@ GROUP BY T1.ips_site_page
 		];
 	}
 	return $missings;
+}
+
+function getPagesOfCategorySQL($p, $fromWiki) {
+	global $ini;
+
+	$localDb = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], $fromWiki . '_p');
+	$p = mysqli_real_escape_string($localDb, str_replace(' ', '_', $p));
+	$query = "
+SELECT page_title
+FROM categorylinks T1 INNER JOIN page T2 ON cl_from = page_id
+WHERE cl_to = \"$p\" AND page_namespace = 0
+";
+	$dbResult = mysqli_query($localDb, $query);
+	if (!$dbResult) {
+		error_log(mysqli_error($db));
+		error_log($query);
+		return [];
+	}
+	$result = [];
+	while ($match = $dbResult->fetch_row()) {
+		$result[] = str_replace('_', ' ', $match[0]);
+	}
+	return $result;
 }
 
 function getImdbIdWikidata($pages, $fromWiki) {
