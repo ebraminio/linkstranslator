@@ -1,4 +1,4 @@
-# Linkscount
+# linkstranslator
 Backend for https://en.wikipedia.org/wiki/User:Ebrahim/ArticleTranslator.js, running at https://linkstranslator.toolforge.org/.
 
 ## System requirements
