@@ -64,10 +64,12 @@ GROUP BY rev_actor
         $result[$user] = ['creationTime' => +$creationTime[$id], 'sixMonthsEdits' => +$sixMonthsEdits[$id]];
     }
 
+    mysqli_close($db);
+
     return $result;
 }
 
-function fetch_query(mysqli $db, string $query) {
+function fetch_query(mysqli $db, string $query): array {
     $q = mysqli_query($db, $query);
     $result = [];
     while ($row = $q->fetch_row()) $result[$row[0]] = $row[1];
