@@ -15,7 +15,7 @@ function main(int $timestamp, array $rawUsernames): array {
         return ['#documentation' => 'Checks users eligibility, use it like ?usernames=Salgo60|Fabian_Roudra_Baroi&timestamp=1673719206937 Source: github.com/ebraminio/linkstranslator'];
     }
 
-    $ini = parse_ini_file('../replica.my.cnf');
+    $ini = parse_ini_file('../../replica.my.cnf');
     $db = mysqli_connect('fawiki.analytics.db.svc.eqiad.wmflabs', $ini['user'], $ini['password'], 'fawiki_p');
 
     $usernames = [];
