@@ -7,16 +7,17 @@ header('Access-Control-Allow-Origin: *');
 
 echo json_encode(main(
     +($_REQUEST['timestamp'] ?? '0'),
-    isset($_REQUEST['usernames']) ? explode('|', $_REQUEST['usernames']) : []
+    isset($_REQUEST['usernames']) ? explode('|', $_REQUEST['usernames']) : [],
+    $_REQUEST['usernames'] ?? 'fawiki',
 ));
 
-function main(int $timestamp, array $rawUsernames): array {
-    if ($timestamp === 0 || count($rawUsernames) === 0) {
-        return ['#documentation' => 'Checks users eligibility, use it like ?usernames=Salgo60|Fabian_Roudra_Baroi&timestamp=1673719206937 Source: github.com/ebraminio/linkstranslator'];
+function main(int $timestamp, array $rawUsernames, string $dbName): array {
+    if ($timestamp === 0 || count($rawUsernames) === 0 || preg_match('/^[a-z_]{1,20}$/', $dbName) !== 1) {
+        return ['#documentation' => 'Checks users eligibility, use it like ?usernames=Salgo60|Fabian_Roudra_Baroi&timestamp=1673719206937&dbname=fawiki Source: github.com/ebraminio/linkstranslator'];
     }
 
     $ini = parse_ini_file('../../replica.my.cnf');
-    $db = mysqli_connect('fawiki.analytics.db.svc.eqiad.wmflabs', $ini['user'], $ini['password'], 'fawiki_p');
+    $db = mysqli_connect("$dbName.analytics.db.svc.eqiad.wmflabs", $ini['user'], $ini['password'], "${dbName}_p");
 
     $usernames = [];
     foreach ($rawUsernames as $u) {
