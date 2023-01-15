@@ -8,7 +8,7 @@ header('Access-Control-Allow-Origin: *');
 echo json_encode(main(
     +($_REQUEST['timestamp'] ?? '0'),
     isset($_REQUEST['usernames']) ? explode('|', $_REQUEST['usernames']) : [],
-    $_REQUEST['usernames'] ?? 'fawiki',
+    $_REQUEST['dbname'] ?? 'fawiki',
 ));
 
 function main(int $timestamp, array $rawUsernames, string $dbName): array {
