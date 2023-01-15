@@ -8,12 +8,12 @@ header('Access-Control-Allow-Origin: *');
 echo json_encode(main(
     +($_REQUEST['timestamp'] ?? '0'),
     isset($_REQUEST['usernames']) ? explode('|', $_REQUEST['usernames']) : [],
-    $_REQUEST['dbname'] ?? 'fawiki',
+    $_REQUEST['dbname'] ?? 'enwiki',
 ));
 
 function main(int $timestamp, array $rawUsernames, string $dbName): array {
     if ($timestamp === 0 || count($rawUsernames) === 0 || preg_match('/^[a-z_]{1,20}$/', $dbName) !== 1) {
-        return ['#documentation' => 'Checks users eligibility, use it like ?usernames=Salgo60|Fabian_Roudra_Baroi&timestamp=1673719206937&dbname=fawiki Source: github.com/ebraminio/linkstranslator'];
+        return ['#documentation' => 'Checks users eligibility, use it like ?usernames=Salgo60|Fabian_Roudra_Baroi&timestamp=1673719206937&dbname=enwiki Source: github.com/ebraminio/linkstranslator'];
     }
 
     $ini = parse_ini_file('../../replica.my.cnf');
