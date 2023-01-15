@@ -8,7 +8,7 @@ $useDb = file_exists('../replica.my.cnf');
 
 if ($useDb) {
 	$ini = parse_ini_file('../replica.my.cnf');
-	$db = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], 'wikidatawiki_p');
+	$db = mysqli_connect('wikidatawiki.analytics.db.svc.eqiad.wmflabs', $ini['user'], $ini['password'], 'wikidatawiki_p');
 	if ($db === false) {
 		$useDb = false;
 	}
@@ -154,7 +154,7 @@ function getLinksInfoSQL($rawPages, $fromWiki) {
 		$pages[] = mysqli_real_escape_string($db, $p);
 	}
 
-	$localDb = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], $fromWiki . '_p');
+	$localDb = mysqli_connect($fromWiki . '.analytics.db.svc.eqiad.wmflabs', $ini['user'], $ini['password'], $fromWiki . '_p');
 
 	$localPages = [];
 	foreach ($pages as $p) {
@@ -211,7 +211,7 @@ GROUP BY T1.ips_site_page
 function getPagesOfCategorySQL($p, $fromWiki) {
 	global $ini;
 
-	$localDb = mysqli_connect('enwiki.labsdb', $ini['user'], $ini['password'], $fromWiki . '_p');
+	$localDb = mysqli_connect($fromWiki . '.analytics.db.svc.eqiad.wmflabs', $ini['user'], $ini['password'], $fromWiki . '_p');
 	$p = mysqli_real_escape_string($localDb, str_replace(' ', '_', $p));
 	$query = "
 SELECT page_title
