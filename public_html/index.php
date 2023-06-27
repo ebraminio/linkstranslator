@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 error_reporting(-1);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -14,13 +16,13 @@ if ($useDb) {
 	}
 }
 
-echo json_encode(translateLinks(
+echo json_encode((object)translateLinks(
 	isset($_REQUEST['p']) ? (is_array($_REQUEST['p']) ? $_REQUEST['p'] : explode('|', $_REQUEST['p'])) : [],
-	isset($_REQUEST['from']) && is_string($_REQUEST['from']) ? $_REQUEST['from'] : 'enwiki',
-	isset($_REQUEST['to']) && is_string($_REQUEST['to']) ? $_REQUEST['to'] : 'fawiki',
-	isset($_REQUEST['missings']) && is_string($_REQUEST['missings']) ? $_REQUEST['missings'] === 'true' : false,
-	isset($_REQUEST['fromCategory']) && is_string($_REQUEST['fromCategory']) ? $_REQUEST['fromCategory'] : null, # source wiki category
-	isset($_REQUEST['notToCategory']) && is_string($_REQUEST['notToCategory']) ? $_REQUEST['notToCategory'] : null, # destination wiki cateegory
+	$_REQUEST['from'] ?? 'enwiki',
+	$_REQUEST['to'] ?? 'fawiki',
+	filter_var($_REQUEST['missings'] ?? '', FILTER_VALIDATE_BOOLEAN),
+	$_REQUEST['fromCategory'] ?? null, # source wiki category
+	$_REQUEST['notToCategory'] ?? null, # destination wiki cateegory
 	$useDb
 ), JSON_UNESCAPED_UNICODE);
 
@@ -28,7 +30,7 @@ if ($useDb) {
 	mysqli_close($db);
 }
 
-function translateLinks($pages, $fromWiki, $toWiki, $missings, $fromCategory, $notToCategory, $useDb) {
+function translateLinks(array $pages, string $fromWiki, string $toWiki, bool $missings, ?string $fromCategory, ?string $notToCategory, bool $useDb): array {
 	if (count($pages) === 0 && $fromCategory === null) {
 		return ['#documentation' => 'A service to translate links based on Wikipedia language links, use it like: ?p=Earth|Moon|Human|Water&from=en&to=de Source: github.com/ebraminio/linkstranslator'];
 	}
@@ -44,8 +46,8 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $fromCategory, $n
 
 	if ($toWiki === 'info') {
 		return $useDb
-			? (object)getLinksInfoSQL(array_values($pages), $fromWiki)
-			: (object)getLinksInfo(array_values($pages), $fromWiki);
+			? getLinksInfoSQL(array_values($pages), $fromWiki)
+			: getLinksInfo(array_values($pages), $fromWiki);
 	}
 
 	$toWiki = strtolower($toWiki);
@@ -57,7 +59,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $fromCategory, $n
 	$titlesMap = resolvePages($pages, $fromWiki);
 
 	if ($fromWiki === $toWiki) {
-		return (object)$titlesMap;
+		return $titlesMap;
 	}
 
 	$resolvedPages = array_unique(array_values($titlesMap));
@@ -96,7 +98,7 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $fromCategory, $n
 			}
 		}
 
-		$result['#missings'] = (object)$missingsResult;
+		$result['#missings'] = $missingsResult;
 	}
 
 	if ($notToCategory !== null) {
@@ -110,10 +112,10 @@ function translateLinks($pages, $fromWiki, $toWiki, $missings, $fromCategory, $n
 		$result = $filteredResult;
 	}
 
-	return (object)$result;
+	return $result;
 }
 
-function getLinksInfo($pages, $fromWiki) {
+function getLinksInfo(array $pages, string $fromWiki): array {
 	$host = dbNameToOrigin($fromWiki);
 	$apiResult = multiRequest(array_map(function ($page) use ($host) {
 		return [
@@ -146,7 +148,7 @@ function getLinksInfo($pages, $fromWiki) {
 	return $missings;
 }
 
-function getLinksInfoSQL($rawPages, $fromWiki) {
+function getLinksInfoSQL(array $rawPages, string $fromWiki): array {
 	global $ini, $db;
 
 	$pages = [];
@@ -208,7 +210,7 @@ GROUP BY T1.ips_site_page
 	return $missings;
 }
 
-function getPagesOfCategorySQL($p, $fromWiki) {
+function getPagesOfCategorySQL(string $p, string $fromWiki): array {
 	global $ini;
 
 	$localDb = mysqli_connect($fromWiki . '.analytics.db.svc.eqiad.wmflabs', $ini['user'], $ini['password'], $fromWiki . '_p');
@@ -231,7 +233,7 @@ WHERE cl_to = \"$p\" AND page_namespace = 0
 	return $result;
 }
 
-function getImdbIdWikidata($pages, $fromWiki) {
+function getImdbIdWikidata(array $pages, string $fromWiki): array {
 	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
 		return [
 			'action' => 'wbgetentities',
@@ -270,7 +272,7 @@ function getImdbIdWikidata($pages, $fromWiki) {
 	return $equs;
 }
 
-function getUnicodeWikidata($pages, $fromWiki) {
+function getUnicodeWikidata(array $pages, string $fromWiki): array {
 	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
 		return $fromWiki === 'wikidatawiki' ? [
 			'action' => 'wbgetentities',
@@ -318,7 +320,7 @@ function getUnicodeWikidata($pages, $fromWiki) {
 	return $equs;
 }
 
-function getWikidataId($pages, $fromWiki) {
+function getWikidataId(array $pages, string $fromWiki): array {
 	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
 		return [
 			'action' => 'wbgetentities',
@@ -350,7 +352,7 @@ function getWikidataId($pages, $fromWiki) {
 	return $equs;
 }
 
-function getWikidataIdSQL($rawPages, $fromWiki) {
+function getWikidataIdSQL(array $rawPages, string $fromWiki): array {
 	global $db;
 
 	$pages = [];
@@ -377,7 +379,7 @@ WHERE ips_site_page IN ('" . implode("', '", $pages) . "') AND ips_site_id = '$f
 	return $equs;
 }
 
-function getLocalNamesFromWikidataSQL($rawPages, $fromWiki, $toWiki) {
+function getLocalNamesFromWikidataSQL(array $rawPages, string $fromWiki, string $toWiki): array {
 	global $db;
 
 	$pages = [];
@@ -417,7 +419,7 @@ WHERE T1.ips_site_id = '$fromWiki' AND T1.ips_site_page IN ('" . implode("', '",
 	return $equs;
 }
 
-function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
+function getLocalNamesFromWikidata(array $pages, string $fromWiki, string $toWiki): array {
 	$apiResultArray = batchApi('wikidatawiki', $pages, function ($batch) use ($fromWiki) {
 		return $fromWiki === 'wikidatawiki' ? [
 			'action' => 'wbgetentities',
@@ -463,7 +465,7 @@ function getLocalNamesFromWikidata($pages, $fromWiki, $toWiki) {
 	return $equs;
 }
 
-function resolvePages($pages, $fromWiki) {
+function resolvePages(array $pages, string $fromWiki): array {
 	$apiResultArray = batchApi($fromWiki, $pages, function ($batch) {
 		return [
 			'action' => 'query',
@@ -514,14 +516,14 @@ function resolvePages($pages, $fromWiki) {
 	return $result;
 }
 
-function dbNameToOrigin($dbName) {
+function dbNameToOrigin(string $dbName): string {
 	if ($dbName === 'wikidatawiki') { return 'www.wikidata.org'; }
 	if ($dbName === 'commonswiki') { return 'commons.wikimedia.org'; }
 	$p = explode('wiki', $dbName);
 	return str_replace('_', '-', $p[0]) . '.wiki' . (isset($p[1]) && strlen($p[1]) ? $p[1] : 'pedia') . '.org';
 }
 
-function batchApi($dbName, $pages, $requestCreator) {
+function batchApi(string $dbName, array $pages, object $requestCreator): array {
 	$host = dbNameToOrigin($dbName);
 	$batches = array_chunk($pages, 50);
 	return multiRequest(array_map(function ($data) use ($host, $requestCreator) {
@@ -533,7 +535,7 @@ function batchApi($dbName, $pages, $requestCreator) {
 }
 
 // http://www.phpied.com/simultaneuos-http-requests-in-php-with-curl/
-function multiRequest($data, $options = array()) {
+function multiRequest(array $data, array $options = array()): array {
  
   // array of curl handles
   $curly = array();

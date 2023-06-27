@@ -1,12 +1,13 @@
 <?php
 declare(strict_types=1);
+
 error_reporting(-1);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
-echo json_encode(main(
-    +($_REQUEST['timestamp'] ?? '0'),
+echo json_encode((object)main(
+    filter_var($_REQUEST['timestamp'] ?? '', FILTER_VALIDATE_INT, ['options' => ['default' => 0, 'min_range' => 0]]),
     isset($_REQUEST['usernames']) ? explode('|', $_REQUEST['usernames']) : [],
     $_REQUEST['dbname'] ?? 'enwiki',
 ));
