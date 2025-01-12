@@ -164,9 +164,10 @@ function getLinksInfoSQL(array $rawPages, string $fromWiki): array {
 	}
 
 	$query = "
-SELECT pl_title, COUNT(*)
-FROM pagelinks
-WHERE pl_from_namespace = 0 AND pl_namespace = 0 AND pl_title IN ('" . implode("', '", $localPages) . "') GROUP BY pl_title;
+SELECT lt_title, COUNT(*)
+FROM pagelinks INNER JOIN linktarget ON pl_target_id = lt_id
+WHERE pl_from_namespace = 0 AND lt_namespace = 0 AND lt_title IN ('" . implode("', '", $localPages) . "')
+GROUP BY lt_title;
 ";
 	$dbResult = mysqli_query($localDb, $query);
 	if (!$dbResult) {
