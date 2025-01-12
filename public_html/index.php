@@ -222,7 +222,7 @@ WHERE cl_to = \"$p\" AND page_namespace = 0
 ";
 	$dbResult = mysqli_query($localDb, $query);
 	if (!$dbResult) {
-		error_log(mysqli_error($db));
+		error_log(mysqli_error($localDb));
 		error_log($query);
 		return [];
 	}
@@ -258,9 +258,7 @@ function getImdbIdWikidata(array $pages, string $fromWiki): array {
 		if (!isset($entity['sitelinks'])) { continue; }
 
 		// not updated Wikidata items may don't have title on their sitelinks
-		$from = isset($entity['sitelinks'][$fromWiki]['title'])
-			? $entity['sitelinks'][$fromWiki]['title']
-			: $entity['sitelinks'][$fromWiki];
+		$from = $entity['sitelinks'][$fromWiki]['title'] ?? $entity['sitelinks'][$fromWiki];
 
 		if (!isset($entity['claims']['P345'][0]['mainsnak']['datavalue']['value']))
 			continue;
@@ -305,9 +303,7 @@ function getUnicodeWikidata(array $pages, string $fromWiki): array {
 			if (!isset($entity['sitelinks'])) { continue; }
 
 			// not updated Wikidata items may don't have title on their sitelinks
-			$from = isset($entity['sitelinks'][$fromWiki]['title'])
-				? $entity['sitelinks'][$fromWiki]['title']
-				: $entity['sitelinks'][$fromWiki];
+			$from = $entity['sitelinks'][$fromWiki]['title'] ?? $entity['sitelinks'][$fromWiki];
 		}
 
 		if (!isset($entity['claims']['P487'][0]['mainsnak']['datavalue']['value']))
@@ -343,9 +339,7 @@ function getWikidataId(array $pages, string $fromWiki): array {
 	$equs = [];
 	foreach ($entities as $entity) {
 		// not updated Wikidata items may don't have title on their sitelinks
-		$from = isset($entity['sitelinks'][$fromWiki]['title'])
-			? $entity['sitelinks'][$fromWiki]['title']
-			: $entity['sitelinks'][$fromWiki];
+		$from = $entity['sitelinks'][$fromWiki]['title'] ?? $entity['sitelinks'][$fromWiki];
 
 		$equs[$from] = $entity['id'];
 	}
@@ -452,13 +446,9 @@ function getLocalNamesFromWikidata(array $pages, string $fromWiki, string $toWik
 			$from = $entity['id'];
 		} else {
 			// not updated Wikidata items may don't have title on their sitelinks
-			$from = isset($entity['sitelinks'][$fromWiki]['title'])
-				? $entity['sitelinks'][$fromWiki]['title']
-				: $entity['sitelinks'][$fromWiki];
+			$from = $entity['sitelinks'][$fromWiki]['title'] ?? $entity['sitelinks'][$fromWiki];
 		}
-		$to = isset($entity['sitelinks'][$toWiki]['title'])
-			? $entity['sitelinks'][$toWiki]['title']
-			: $entity['sitelinks'][$toWiki];
+		$to = $entity['sitelinks'][$toWiki]['title'] ?? $entity['sitelinks'][$toWiki];
 
 		$equs[$from] = $to;
 	}
@@ -523,7 +513,7 @@ function dbNameToOrigin(string $dbName): string {
 	return str_replace('_', '-', $p[0]) . '.wiki' . (isset($p[1]) && strlen($p[1]) ? $p[1] : 'pedia') . '.org';
 }
 
-function batchApi(string $dbName, array $pages, object $requestCreator): array {
+function batchApi(string $dbName, array $pages, callable $requestCreator): array {
 	$host = dbNameToOrigin($dbName);
 	$batches = array_chunk($pages, 50);
 	return multiRequest(array_map(function ($data) use ($host, $requestCreator) {
@@ -536,28 +526,28 @@ function batchApi(string $dbName, array $pages, object $requestCreator): array {
 
 // http://www.phpied.com/simultaneuos-http-requests-in-php-with-curl/
 function multiRequest(array $data, array $options = array()): array {
- 
+
   // array of curl handles
   $curly = array();
   // data to be returned
   $result = array();
- 
+
   // multi handle
   $mh = curl_multi_init();
- 
+
   // loop through $data and create curl handles
   // then add them to the multi-handle
   foreach ($data as $id => $d) {
- 
+
     $curly[$id] = curl_init();
- 
+
     $url = (is_array($d) && !empty($d['url'])) ? $d['url'] : $d;
     curl_setopt($curly[$id], CURLOPT_URL,            $url);
     curl_setopt($curly[$id], CURLOPT_HEADER,         0);
     curl_setopt($curly[$id], CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($curly[$id], CURLOPT_USERAGENT,      'linkstranslator (github.com/ebraminio/linkstranslator)');
 
- 
+
     // post?
     if (is_array($d)) {
       if (!empty($d['post'])) {
@@ -565,30 +555,30 @@ function multiRequest(array $data, array $options = array()): array {
         curl_setopt($curly[$id], CURLOPT_POSTFIELDS, $d['post']);
       }
     }
- 
+
     // extra options?
     if (!empty($options)) {
       curl_setopt_array($curly[$id], $options);
     }
- 
+
     curl_multi_add_handle($mh, $curly[$id]);
   }
- 
+
   // execute the handles
   $running = null;
   do {
     curl_multi_exec($mh, $running);
   } while($running > 0);
- 
- 
+
+
   // get content and remove handles
   foreach($curly as $id => $c) {
     $result[$id] = curl_multi_getcontent($c);
     curl_multi_remove_handle($mh, $c);
   }
- 
+
   // all done
   curl_multi_close($mh);
- 
+
   return $result;
 }
